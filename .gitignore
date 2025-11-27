@@ -1,0 +1,5 @@
+# Ignore the folder data completely
+data/
+# Ignore JSON files
+lmd-full.json
+match-scores.json
