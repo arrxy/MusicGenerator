@@ -15,6 +15,7 @@ class MidiToAbcConverter:
         Converts MIDI to ABC using the native 'midi2abc' CLI tool.
         Returns the ABC string or None if conversion failed.
         """
+        abc_path = None
         try:
             # -b 100: sets bars per line (prevents massive long lines)
             # -o -  : outputs to stdout instead of file
@@ -56,9 +57,11 @@ class MidiToAbcConverter:
             return None
         except Exception as e:
             logger.error(f"Error converting {midi_path}: {e}")
+            if abc_path:
+                os.remove(abc_path)
             return None
 
-    def _clean_abc(self, content: str) -> str:
+    def _clean_abc_v1(self, content: str) -> str:
         """Post-processing to remove midi2abc comments and metadata."""
         lines = content.splitlines()
         # Filter out comments (%) and empty lines
@@ -66,4 +69,31 @@ class MidiToAbcConverter:
             l.strip() for l in lines 
             if not l.strip().startswith('%') and l.strip()
         ]
+        return "\n".join(cleaned)
+    
+    def _clean_abc(self, content: str) -> str:
+        """
+        CRITICAL FIX: Removes Titles (T:) and Metadata that cause 
+        vocabulary explosion. Only keeps musical structure.
+        """
+        lines = content.splitlines()
+        cleaned = []
+        
+        # Only allow headers that describe MUSIC, not file info
+        allowed_headers = ("K:", "M:", "L:", "Q:", "V:", "P:")
+        
+        for l in lines:
+            l = l.strip()
+            if not l: continue
+            if l.startswith('%'): continue # Remove comments
+            
+            # If it looks like a header X: ...
+            if len(l) > 2 and l[1] == ':':
+                if l.startswith(allowed_headers):
+                    cleaned.append(l)
+                # We deliberately SKIP 'T:', 'X:', 'Z:' to prevent data leakage
+            else:
+                # It is notes/music
+                cleaned.append(l)
+                
         return "\n".join(cleaned)
