@@ -1,9 +1,0 @@
-paths:
-  raw_dir: ./data/raw/lmd_full
-  interim_dir: ./data/interim
-  output_dir: ./data/processed
-processing:
-  max_workers: 6
-  min_size_kb: 1
-  max_size_kb: 200
-  timeout: 10

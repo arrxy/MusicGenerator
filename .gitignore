@@ -4,3 +4,4 @@ data/
 lmd-full.json
 match-scores.json
 src/__pycache__/
+outputs/
