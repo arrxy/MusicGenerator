@@ -61,16 +61,6 @@ class MidiToAbcConverter:
                 os.remove(abc_path)
             return None
 
-    def _clean_abc_v1(self, content: str) -> str:
-        """Post-processing to remove midi2abc comments and metadata."""
-        lines = content.splitlines()
-        # Filter out comments (%) and empty lines
-        cleaned = [
-            l.strip() for l in lines 
-            if not l.strip().startswith('%') and l.strip()
-        ]
-        return "\n".join(cleaned)
-    
     def _clean_abc(self, content: str) -> str:
         """
         CRITICAL FIX: Removes Titles (T:) and Metadata that cause 
