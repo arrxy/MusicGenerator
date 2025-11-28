@@ -3,3 +3,4 @@ data/
 # Ignore JSON files
 lmd-full.json
 match-scores.json
+src/__pycache__/

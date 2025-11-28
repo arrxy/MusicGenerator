@@ -40,6 +40,11 @@ class DataPipeline:
                 result = future.result()
                 if result:
                     valid_songs.append(result)
+                    if len(valid_songs) >= 100000000000:
+                        print("Reached 100000000000 valid songs. Stopping early...")
+                        for f in futures:
+                            f.cancel()
+                        break
 
         print(f"Successfully converted {len(valid_songs)} songs.")
 

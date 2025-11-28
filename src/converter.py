@@ -2,6 +2,7 @@ import subprocess
 import os
 from pathlib import Path
 import logging
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +18,18 @@ class MidiToAbcConverter:
         try:
             # -b 100: sets bars per line (prevents massive long lines)
             # -o -  : outputs to stdout instead of file
-            cmd = ["midi2abc", str(midi_path), "-b", "100", "-o", "-"]
-            
+            # cmd = ["midi2abc", str(midi_path), "-b", "100", "-o", "-"]
+            project_root = Path(__file__).parent
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".abc", dir=project_root) as tmp:
+                abc_path = tmp.name
+            # cmd = ["midi2abc", "-o", "-", "-b", "100", str(midi_path)]
+            cmd = [
+                "midi2abc",
+                str(midi_path),
+                "-b", "100",
+                "-o", abc_path,
+            ]
+
             result = subprocess.run(
                 cmd,
                 capture_output=True,
@@ -28,11 +39,14 @@ class MidiToAbcConverter:
             )
 
             if result.returncode != 0:
+                os.remove(abc_path)
                 return None
-            
-            abc_content = result.stdout
-            
-            # Basic validation: must contain header and notes
+
+            with open(abc_path, "r") as f:
+                abc_content = f.read()
+
+            os.remove(abc_path)
+
             if "X:" not in abc_content or "K:" not in abc_content:
                 return None
                 
