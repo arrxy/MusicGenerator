@@ -46,18 +46,13 @@ class MusicTokenizer:
         current_bar_tokens = []
 
         for token in raw_tokens:
-            # distinct mapping
             token_id = self.vocab.get(token, self.vocab["<unk>"])
             current_bar_tokens.append(token_id)
-
-            # Check if this token is a bar line
             if '|' in token:
-                # Bar complete. Process it into patches.
                 bar_patches = self._process_single_bar(current_bar_tokens)
                 all_patches.extend(bar_patches)
                 current_bar_tokens = []
 
-        # Handle remaining tokens (trailing notes without a final barline)
         if current_bar_tokens:
             bar_patches = self._process_single_bar(current_bar_tokens)
             all_patches.extend(bar_patches)
