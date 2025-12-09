@@ -1,0 +1,31 @@
+=== TRANSFORMER SCALING STUDY INSIGHTS ===
+Date: 2025-12-09
+Device: mps
+
+--------------------------------------------------
+Model: Tiny
+Parameters: 1,033,344
+Validation Loss: 1.4371
+Training Time: 951.34s (15.9m)
+Training Speed: 105,115 tokens/sec
+Tokens Processed: 100,000,000
+Timestamp: 2025-12-09 00:51:52
+--------------------------------------------------
+--------------------------------------------------
+Model: Small
+Parameters: 6,535,008
+Validation Loss: 1.3722
+Training Time: 3154.46s (52.6m)
+Training Speed: 31,701 tokens/sec
+Tokens Processed: 100,000,000
+Timestamp: 2025-12-09 01:44:43
+--------------------------------------------------
+--------------------------------------------------
+Model: Medium
+Parameters: 26,180,096
+Validation Loss: 1.3457
+Training Time: 8916.58s (148.6m)
+Training Speed: 11,215 tokens/sec
+Tokens Processed: 100,000,000
+Timestamp: 2025-12-09 04:14:07
+--------------------------------------------------
