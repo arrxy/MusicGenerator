@@ -77,7 +77,7 @@ def train_optimal(name, cfg):
     print(f"🚀 Initializing Optimal Run: {name}")
 
     # 1. Setup Model
-    temp_vocab_size = 1619 
+    temp_vocab_size = 1620 
     config = GPTConfig(vocab_size=temp_vocab_size, block_size=BLOCK_SIZE, bias=True, **cfg)
     model = GPT(config).to(DEVICE)
     params = model.get_num_params()
