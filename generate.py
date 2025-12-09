@@ -6,22 +6,22 @@ from src.model import GPT, GPTConfig
 from src.tokenizer import MusicTokenizer
 
 # --- CONFIGURATION ---
-MODEL_SIZE = "Small"         # Must match the checkpoint filename (e.g., ckpt_Small.pt)
-CHECKPOINT_PATH = f"ckpt_{MODEL_SIZE}.pt"
+MODEL_SIZE = "Large"         # Must match the checkpoint filename
+CHECKPOINT_PATH = f"ckpt_{MODEL_SIZE}_extended.pt" # Points to your optimal file
 VOCAB_PATH = "data/processed/vocab.json"
-MAX_NEW_TOKENS = 512         # Length of the song
+MAX_NEW_TOKENS = 64         # Length of the song
 TEMPERATURE = 0.8            # 1.0 = Random/Creative, 0.8 = Focused/Safe
 TOP_K = 600                  # Limit to top N most likely next notes
-REPETITION_PENALTY = 1.5     # Reduce probability of recently used tokens (1.0 = No penalty)
+REPETITION_PENALTY = 1.1     # Reduce probability of recently used tokens (1.0 = No penalty)
 
 # Model Architecture Registry (Must match training exactly)
-# FIX: Set bias=True to match your saved checkpoint
+# Note: Training used bias=True, so we must use it here too.
 model_configs = {
     "Tiny":   dict(n_layer=4,  n_head=4,  n_embd=128, dropout=0.0, bias=True),
     "Small":  dict(n_layer=6,  n_head=6,  n_embd=288, dropout=0.0, bias=True),
     "Medium": dict(n_layer=8,  n_head=8,  n_embd=512, dropout=0.0, bias=True),
     "Large":  dict(n_layer=10, n_head=10, n_embd=640, dropout=0.0, bias=True),
-    "XL":     dict(n_layer=12, n_head=12, n_embd=864, dropout=0.0, bias=True),
+    "XL":     dict(n_layer=12, n_head=12, n_embd=768, dropout=0.0, bias=True),
 }
 
 # Detect Hardware
@@ -31,91 +31,106 @@ elif torch.cuda.is_available():
     DEVICE = 'cuda'
 else:
     DEVICE = 'cpu'
-DEVICE = 'cpu'
 
-def validate_abc(text):
+def load_checkpoint_robust(model, path):
     """
-    Post-processing to fix common syntax errors in AI-generated ABC.
-    - Removes empty chords []
-    - Closes unclosed chords [C E G
-    - Removes orphaned closing brackets ]
+    Smart loader that handles:
+    1. Metadata wrappers (extracts 'model_state_dict')
+    2. torch.compile prefixes ('_orig_mod.')
     """
-    # 1. Remove empty chords
-    text = text.replace("[]", "")
+    print(f"📂 Loading weights from {path}...")
     
-    lines = text.split('\n')
-    cleaned_lines = []
+    # Load raw file
+    checkpoint = torch.load(path, map_location=DEVICE, weights_only=False)
     
-    for line in lines:
-        # Skip headers
-        if len(line) > 1 and line[1] == ':':
-            cleaned_lines.append(line)
-            continue
+    # 1. Unwrap metadata if present
+    if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+        state_dict = checkpoint['model_state_dict']
+    else:
+        state_dict = checkpoint # Assume it's just weights
+
+    # 2. Fix torch.compile prefixes
+    new_state_dict = {}
+    for key, value in state_dict.items():
+        if key.startswith('_orig_mod.'):
+            new_key = key[10:] # Strip "_orig_mod."
+            new_state_dict[new_key] = value
+        else:
+            new_state_dict[key] = value
             
-        # Fix bracket matching
-        new_line = ""
-        in_chord = False
+    # 3. Load into model
+    msg = model.load_state_dict(new_state_dict, strict=False)
+    print(f"   Weights loaded. Missing keys: {len(msg.missing_keys)}, Unexpected keys: {len(msg.unexpected_keys)}")
+    return model
+
+def get_checkpoint_vocab_size(path):
+    """Peek at checkpoint to find the actual trained vocab size"""
+    print(f"🔍 Peeking at checkpoint to verify vocab size...")
+    try:
+        # Load just the map to avoid full RAM usage if possible, though torch.load loads all
+        checkpoint = torch.load(path, map_location='cpu', weights_only=False)
         
-        for char in line:
-            if char == '[':
-                if in_chord: # AI forgot to close previous chord
-                     new_line += '][' 
-                else:
-                    in_chord = True
-                    new_line += char
-            elif char == ']':
-                if in_chord:
-                    in_chord = False
-                    new_line += char
-                else:
-                    # Orphaned closing bracket, skip it
-                    pass 
-            else:
-                new_line += char
-        
-        # If line ends while inside a chord, close it
-        if in_chord:
-            new_line += ']'
+        state_dict = checkpoint
+        if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+            state_dict = checkpoint['model_state_dict']
             
-        cleaned_lines.append(new_line)
-        
-    return "\n".join(cleaned_lines)
+        # Try to find the token embedding weight
+        # Standard name: transformer.wte.weight
+        # Compiled name: _orig_mod.transformer.wte.weight
+        for key in ['transformer.wte.weight', '_orig_mod.transformer.wte.weight']:
+            if key in state_dict:
+                return state_dict[key].shape[0]
+                
+    except Exception as e:
+        print(f"   ⚠️ Could not determine vocab size from file: {e}")
+    
+    return None
 
 def generate():
-    print(f"🎹 Loading {MODEL_SIZE} model from {CHECKPOINT_PATH}...")
-    
     # 1. Load Tokenizer
     if not os.path.exists(VOCAB_PATH):
         raise FileNotFoundError(f"Vocab file not found at {VOCAB_PATH}")
     tokenizer = MusicTokenizer()
     tokenizer.load(VOCAB_PATH)
     vocab_size = len(tokenizer.vocab)
-    print(f"   Vocab Size: {vocab_size}")
+    print(f"   Tokenizer Vocab Size: {vocab_size}")
 
-    # 2. Initialize Model Architecture
+    # 2. Resolve Checkpoint Path Logic
+    ckpt_path = CHECKPOINT_PATH
+    if not os.path.exists(ckpt_path):
+        print(f"❌ Checkpoint {ckpt_path} not found!")
+        alt_path = f"ckpt_{MODEL_SIZE}_latest.pt"
+        if os.path.exists(alt_path):
+            print(f"   Found {alt_path} instead. Switching to that.")
+            ckpt_path = alt_path
+        else:
+            return
+
+    # 3. Smart Size Adjustment
+    # The checkpoint might have a slightly different size (e.g. 1620 vs 1619)
+    # We must initialize the model with the SIZE IN THE FILE, not the json size.
+    trained_vocab_size = get_checkpoint_vocab_size(ckpt_path)
+    
+    if trained_vocab_size is not None and trained_vocab_size != vocab_size:
+        print(f"   ⚠️ Mismatch detected! Model trained with {trained_vocab_size}, but vocab.json has {vocab_size}.")
+        print(f"   🔧 Adjusting model initialization to {trained_vocab_size} to match weights.")
+        vocab_size = trained_vocab_size
+
+    # 4. Initialize Model Architecture
     if MODEL_SIZE not in model_configs:
         raise ValueError(f"Unknown model size: {MODEL_SIZE}")
     
-    # Initialize a blank model with the right shape
     config = GPTConfig(vocab_size=vocab_size, block_size=256, **model_configs[MODEL_SIZE])
     model = GPT(config)
-
-    # 3. Load Learned Weights
-    if not os.path.exists(CHECKPOINT_PATH):
-        print(f"❌ Checkpoint {CHECKPOINT_PATH} not found!")
-        return
-
-    # Load weights onto CPU first to avoid memory complications, then move to Device
-    state_dict = torch.load(CHECKPOINT_PATH, map_location=DEVICE)
-    model.load_state_dict(state_dict)
     model.to(DEVICE)
-    model.eval()
-    print("   Model loaded successfully.")
 
-    # 4. Generation Loop
+    # 5. Load Learned Weights
+    model = load_checkpoint_robust(model, ckpt_path)
+    model.eval()
+
+    # 6. Generation Loop
     print(f"🎵 Generating {MAX_NEW_TOKENS} tokens (Temp={TEMPERATURE}, Penalty={REPETITION_PENALTY})...")
     
-    # Start with the specific <start> token ID
     start_id = tokenizer.vocab["<start>"]
     idx = torch.tensor([[start_id]], dtype=torch.long, device=DEVICE)
 
@@ -133,7 +148,6 @@ def generate():
             
             # --- REPETITION PENALTY ---
             if REPETITION_PENALTY > 1.0:
-                # Get the last few tokens generated
                 lookback = 20
                 context = idx[0, -lookback:]
                 for token_id in context:
@@ -146,57 +160,47 @@ def generate():
             v, _ = torch.topk(logits, min(TOP_K, logits.size(-1)))
             logits[logits < v[:, [-1]]] = -float('Inf')
             
-            # Sample from the distribution
             probs = F.softmax(logits, dim=-1)
             idx_next = torch.multinomial(probs, num_samples=1)
             
-            # Append
             idx = torch.cat((idx, idx_next), dim=1)
             
-            # Stop if we hit <end>
             if idx_next.item() == tokenizer.vocab.get("<end>", -1):
                 print("   Model generated <end> token.")
                 break
 
     print(f"   Done in {time.time()-start_time:.2f}s")
 
-    # 5. Decode to Text
+    # 7. Decode to Text
     generated_ids = idx[0].tolist()
     
-    # Convert IDs back to ABC strings
     abc_tokens = []
     for i in generated_ids:
-        # Skip special tokens in the output text
-        # JSON keys are strings, but generated_ids are ints
+        # If the model predicts a padding index outside our known vocab, skip it
+        if i >= len(tokenizer.reverse_vocab):
+            continue
+            
         word = tokenizer.reverse_vocab.get(str(i), "") 
         if not word: 
-             word = tokenizer.reverse_vocab.get(i, "") # Try int key just in case
+             word = tokenizer.reverse_vocab.get(i, "") 
 
         if word in ["<start>", "<pad>", "<unk>"]: continue
         if word == "<end>": break
         abc_tokens.append(word)
     
-    # Join them
     output_text = "".join(abc_tokens)
     
-    # FORMATTING FIX: Insert newlines after bars to prevent parser errors
-    # ABCjs hates lines that are 400+ characters long
+    # FORMATTING FIX: Insert newlines after bars
     output_text = output_text.replace("|", "|\n")
     
-    # Add a minimal header if the model didn't generate one
     if "X:" not in output_text:
         header = "X:1\nT:Generated Song\nM:4/4\nL:1/8\nK:C\n"
         output_text = header + output_text
-
-    # --- VALIDATION STEP ---
-    # output_text = validate_abc(output_text)
     
     print("\n-------- GENERATED ABC --------")
-    # Print preview
     print(output_text[:500] + ("..." if len(output_text) > 500 else ""))
     print("-------------------------------")
     
-    # Save to file
     out_file = "generated_song.abc"
     with open(out_file, "w") as f:
         f.write(output_text)
