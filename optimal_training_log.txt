@@ -45,3 +45,13 @@ Validation Accuracy: 0.7126
 Training Time: 4.9 min
 Speed: 4,434,091 tok/s
 --------------------------------------------------
+--------------------------------------------------
+Model: Medium
+Parameters: 26,180,608
+Epochs Completed: 1
+Tokens Trained: 5,236,195,328
+Validation Loss: 0.8408
+Validation Accuracy: 0.7539
+Training Time: 45.9 min
+Speed: 1,899,451 tok/s
+--------------------------------------------------
