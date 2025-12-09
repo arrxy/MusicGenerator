@@ -8,6 +8,12 @@ dependencies = [
     "numpy",
     "tqdm",
     "hydra-core",
-    "music21",  # Fallback only
+    "music21",
     "pytest",
+    "torch>=2.9.1",
+    "torchvision>=0.24.1",
+    "torchaudio>=2.9.1",
+    "matplotlib>=3.10.7",
+    "pandas>=2.3.3",
+    "scipy>=1.16.3",
 ]

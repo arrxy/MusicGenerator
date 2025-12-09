@@ -1,0 +1,30 @@
+=== OPTIMAL TRAINING LOG (Chinchilla Scaled) ===
+Date: 2025-12-09
+
+--------------------------------------------------
+Model: Tiny
+Parameters: 1,033,344
+Optimal Tokens: 100,000,000
+Validation Loss: 1.4047
+Validation Accuracy: 0.6068
+Training Time: 15.7m
+Speed: 106,230 tok/s
+--------------------------------------------------
+--------------------------------------------------
+Model: Tiny
+Parameters: 1,033,344
+Tokens Trained: 100,000,000
+Validation Loss: 1.4230
+Validation Accuracy: 0.6042
+Training Time: 0.27 hours
+Speed: 101,934 tok/s
+--------------------------------------------------
+--------------------------------------------------
+Model: Small
+Parameters: 6,535,008
+Tokens Trained: 130,700,288
+Validation Loss: 1.2801
+Validation Accuracy: 0.6374
+Training Time: 1.14 hours
+Speed: 31,980 tok/s
+--------------------------------------------------
