@@ -18,6 +18,10 @@ VAL_PATH = "data/processed/val.txt"
 INSIGHTS_FILE = "optimal_training_log.txt"
 CSV_FILE = "optimal_results.csv"
 
+# --- TRAINING DURATION CONFIG ---
+TOKEN_MULTIPLIER = 200  # Was 20. Now 200 (10x "over-training" for deep convergence)
+NUM_EPOCHS = 50         # Explicitly train for this many passes over the dataset
+
 # Detect Hardware & Enable Optimizations
 if torch.cuda.is_available():
     DEVICE = 'cuda'
@@ -30,14 +34,13 @@ else:
     print("⚠️ Warning: No GPU detected. This script requires an H100/A100.")
 
 # Model Family: NO CAPS. Full Chinchilla Optimal Budgets.
-# 20 tokens per parameter is the scientific gold standard.
 model_configs = {
-    # Name      Layer, Head, Embd    Approx Params   Optimal Tokens (20x)
-    "Tiny":     dict(n_layer=4,  n_head=4,  n_embd=128),  # 1M      20M
-    "Small":    dict(n_layer=6,  n_head=6,  n_embd=288),  # 6M      120M
-    "Medium":   dict(n_layer=8,  n_head=8,  n_embd=512),  # 25M     500M
-    "Large":    dict(n_layer=10, n_head=10, n_embd=640),  # 50M     1 Billion
-    "XL":       dict(n_layer=12, n_head=12, n_embd=768),  # 85M     1.7 Billion
+    # Name      Layer, Head, Embd    Approx Params
+    "Tiny":     dict(n_layer=4,  n_head=4,  n_embd=128), 
+    "Small":    dict(n_layer=6,  n_head=6,  n_embd=288), 
+    "Medium":   dict(n_layer=8,  n_head=8,  n_embd=512), 
+    "Large":    dict(n_layer=10, n_head=10, n_embd=640), 
+    "XL":       dict(n_layer=12, n_head=12, n_embd=768), 
 }
 
 def estimate_loss(model, val_loader, eval_iters=200):
@@ -74,7 +77,7 @@ def log_to_csv(data):
 
 def train_optimal(name, cfg):
     print(f"\n============================================")
-    print(f"🚀 Initializing Optimal Run: {name}")
+    print(f"🚀 Initializing Extended Run: {name}")
 
     # 1. Setup Model
     temp_vocab_size = 1620 
@@ -82,21 +85,23 @@ def train_optimal(name, cfg):
     model = GPT(config).to(DEVICE)
     params = model.get_num_params()
     
-    # 2. Calculate Full Budget
-    target_tokens = max(params * 20, 100_000_000)
+    # 2. Calculate Extended Budget
+    # Using TOKEN_MULTIPLIER (e.g., 200 instead of 20)
+    target_tokens = max(params * TOKEN_MULTIPLIER, 500_000_000)
     print(f"📊 Parameters: {params:,}")
-    print(f"🎯 Chinchilla Target: {target_tokens/1e6:.1f}M tokens")
+    print(f"🎯 Extended Target: {target_tokens/1e6:.1f}M tokens (Multiplier: {TOKEN_MULTIPLIER}x)")
+    print(f"🔄 Epochs: {NUM_EPOCHS}")
 
     # 3. Compile Model (The H100 Secret Weapon)
-    # Fuses layers to reduce memory bandwidth overhead
     print("🔧 Compiling model with torch.compile()...")
     model = torch.compile(model)
 
-    # 4. Setup Dataset (High worker count for fast data loading)
+    # 4. Setup Dataset
+    # We pass target_tokens to ensure the dataset object doesn't cap us early,
+    # but the loop below is what really drives the duration.
     train_ds = MusicStreamingDataset(TRAIN_PATH, VOCAB_PATH, BLOCK_SIZE, max_tokens=target_tokens)
     val_ds = MusicStreamingDataset(VAL_PATH, VOCAB_PATH, BLOCK_SIZE)
     
-    # Use many CPU cores to feed the H100
     num_workers = 8 
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True)
@@ -112,28 +117,35 @@ def train_optimal(name, cfg):
     # Enable BFloat16 Autocast
     ctx = torch.amp.autocast(device_type='cuda', dtype=torch.bfloat16)
 
-    for X, Y in train_loader:
-        X, Y = X.to(DEVICE, non_blocking=True), Y.to(DEVICE, non_blocking=True)
-        
-        optimizer.zero_grad(set_to_none=True) # Slightly faster than zero_grad()
-        
-        with ctx:
-            logits, loss = model(X, Y)
-        
-        loss.backward()
-        optimizer.step()
-        
-        tokens_seen += X.numel()
-        step += 1
-        
-        if step % 50 == 0:
-            # Quick check
-            t_rate = tokens_seen / (time.time() - start_time)
-            print(f"   Step {step} | Loss: {loss.item():.4f} | Speed: {t_rate/1000:.1f}k tok/s | Progress: {tokens_seen/1e6:.1f}M / {target_tokens/1e6:.1f}M")
+    try:
+        for epoch in range(NUM_EPOCHS):
+            print(f"\n--- Epoch {epoch+1}/{NUM_EPOCHS} ---")
+            
+            for X, Y in train_loader:
+                X, Y = X.to(DEVICE, non_blocking=True), Y.to(DEVICE, non_blocking=True)
+                
+                optimizer.zero_grad(set_to_none=True)
+                
+                with ctx:
+                    logits, loss = model(X, Y)
+                
+                loss.backward()
+                optimizer.step()
+                
+                tokens_seen += X.numel()
+                step += 1
+                
+                if step % 50 == 0:
+                    t_rate = tokens_seen / (time.time() - start_time)
+                    print(f"   Step {step} | Loss: {loss.item():.4f} | Speed: {t_rate/1000:.1f}k tok/s | Total: {tokens_seen/1e6:.1f}M / {target_tokens/1e6:.1f}M")
 
-        if tokens_seen >= target_tokens:
-            print(f"✅ Reached Optimal Target ({target_tokens:,} tokens)")
-            break
+                # Optional: Early stop if we blow past the massive target budget significantly
+                if tokens_seen >= target_tokens:
+                    print(f"✅ Reached Target Token Budget ({target_tokens:,} tokens)")
+                    raise StopIteration # Break out of nested loops
+                    
+    except StopIteration:
+        pass # Clean exit from nested loops
     
     total_time = time.time() - start_time
 
@@ -143,7 +155,7 @@ def train_optimal(name, cfg):
     print(f"🏁 Final Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}")
 
     # --- SAVE RESULTS ---
-    log_to_csv([name, params, target_tokens, val_loss, val_acc, total_time])
+    log_to_csv([name, params, tokens_seen, val_loss, val_acc, total_time])
     
     # Insights text
     tokens_per_sec = tokens_seen / total_time if total_time > 0 else 0
@@ -151,6 +163,7 @@ def train_optimal(name, cfg):
         f"--------------------------------------------------\n"
         f"Model: {name}\n"
         f"Parameters: {params:,}\n"
+        f"Epochs Completed: {epoch+1}\n"
         f"Tokens Trained: {tokens_seen:,}\n"
         f"Validation Loss: {val_loss:.4f}\n"
         f"Validation Accuracy: {val_acc:.4f}\n"
@@ -162,9 +175,7 @@ def train_optimal(name, cfg):
         f.write(insight_text)
 
     # 7. Save Model & Clean
-    # Note: torch.compile wraps the model, so we might need to access ._orig_mod if present, 
-    # but state_dict() usually handles it.
-    ckpt_path = f"ckpt_{name}_optimal.pt"
+    ckpt_path = f"ckpt_{name}_extended.pt"
     print(f"💾 Saving checkpoint to {ckpt_path}...")
     torch.save(model.state_dict(), ckpt_path)
     
@@ -173,7 +184,6 @@ def train_optimal(name, cfg):
     gc.collect()
 
 if __name__ == "__main__":
-    # Ensure correct start method for dataloaders
     try:
         torch.multiprocessing.set_start_method('spawn')
     except RuntimeError:
