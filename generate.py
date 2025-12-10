@@ -1,18 +1,19 @@
 import torch
 import torch.nn.functional as F
 import os
+import re
 import time
 from src.model import GPT, GPTConfig
 from src.tokenizer import MusicTokenizer
 
 # --- CONFIGURATION ---
 MODEL_SIZE = "Large"         # Must match the checkpoint filename
-CHECKPOINT_PATH = f"ckpt_{MODEL_SIZE}_extended.pt" # Points to your optimal file
+CHECKPOINT_PATH = f"ckpt_{MODEL_SIZE}_extended.pt" 
 VOCAB_PATH = "data/processed/vocab.json"
-MAX_NEW_TOKENS = 64         # Length of the song
-TEMPERATURE = 0.8            # 1.0 = Random/Creative, 0.8 = Focused/Safe
+MAX_NEW_TOKENS = 300         # Length of the song
+TEMPERATURE = 0.95            # 1.0 = Random/Creative, 0.8 = Focused/Safe
 TOP_K = 600                  # Limit to top N most likely next notes
-REPETITION_PENALTY = 1.1     # Reduce probability of recently used tokens (1.0 = No penalty)
+REPETITION_PENALTY = 1.0     # Reduce probability of recently used tokens (1.0 = No penalty)
 
 # Model Architecture Registry (Must match training exactly)
 # Note: Training used bias=True, so we must use it here too.
@@ -32,59 +33,76 @@ elif torch.cuda.is_available():
 else:
     DEVICE = 'cpu'
 
-def load_checkpoint_robust(model, path):
+def load_checkpoint_data(path):
     """
-    Smart loader that handles:
-    1. Metadata wrappers (extracts 'model_state_dict')
-    2. torch.compile prefixes ('_orig_mod.')
+    Loads checkpoint and preprocesses it:
+    1. Unwraps metadata
+    2. Strips torch.compile prefixes
+    3. Detects trained vocab size
     """
-    print(f"📂 Loading weights from {path}...")
-    
-    # Load raw file
-    checkpoint = torch.load(path, map_location=DEVICE, weights_only=False)
-    
+    print(f"📂 Loading checkpoint from {path}...")
+    try:
+        # Load the file once
+        checkpoint = torch.load(path, map_location=DEVICE, weights_only=False)
+    except FileNotFoundError:
+        return None, None
+
     # 1. Unwrap metadata if present
     if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-        state_dict = checkpoint['model_state_dict']
+        print("   Detected metadata wrapper. Extracting weights...")
+        raw_state_dict = checkpoint['model_state_dict']
     else:
-        state_dict = checkpoint # Assume it's just weights
+        raw_state_dict = checkpoint
 
-    # 2. Fix torch.compile prefixes
-    new_state_dict = {}
-    for key, value in state_dict.items():
-        if key.startswith('_orig_mod.'):
-            new_key = key[10:] # Strip "_orig_mod."
-            new_state_dict[new_key] = value
-        else:
-            new_state_dict[key] = value
-            
-    # 3. Load into model
-    msg = model.load_state_dict(new_state_dict, strict=False)
-    print(f"   Weights loaded. Missing keys: {len(msg.missing_keys)}, Unexpected keys: {len(msg.unexpected_keys)}")
-    return model
-
-def get_checkpoint_vocab_size(path):
-    """Peek at checkpoint to find the actual trained vocab size"""
-    print(f"🔍 Peeking at checkpoint to verify vocab size...")
-    try:
-        # Load just the map to avoid full RAM usage if possible, though torch.load loads all
-        checkpoint = torch.load(path, map_location='cpu', weights_only=False)
-        
-        state_dict = checkpoint
-        if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-            state_dict = checkpoint['model_state_dict']
-            
-        # Try to find the token embedding weight
-        # Standard name: transformer.wte.weight
-        # Compiled name: _orig_mod.transformer.wte.weight
-        for key in ['transformer.wte.weight', '_orig_mod.transformer.wte.weight']:
-            if key in state_dict:
-                return state_dict[key].shape[0]
-                
-    except Exception as e:
-        print(f"   ⚠️ Could not determine vocab size from file: {e}")
+    # 2. Fix torch.compile prefixes and normalize keys
+    clean_state_dict = {}
+    vocab_size_found = None
     
-    return None
+    for key, value in raw_state_dict.items():
+        # Strip "_orig_mod." prefix from torch.compile
+        if key.startswith('_orig_mod.'):
+            new_key = key[10:] 
+        else:
+            new_key = key
+            
+        clean_state_dict[new_key] = value
+        
+        # Detect vocab size from embeddings
+        if new_key == "transformer.wte.weight":
+            vocab_size_found = value.shape[0]
+
+    return clean_state_dict, vocab_size_found
+
+def sanitize_abc(text):
+    """
+    Fixes common AI-generated ABC errors that break web players.
+    """
+    # 1. Clamp Excessive Octaves (3 or more ' or ,) to Double ('' or ,,)
+    # Replaces a''' or a'''' with a'' 
+    # Replaces C,,, or C,,,, with C,,
+    # This ensures notes stay within the standard MIDI playable range
+    text = re.sub(r"([a-gA-G])'{3,}", r"\1''", text)
+    text = re.sub(r"([a-gA-G]),{3,}", r"\1,,", text)
+
+    # 2. Fix Massive Rests (z96 -> z4)
+    # Matches z followed by 2 or more digits (e.g., z96, z48)
+    text = re.sub(r"z\d{2,}", "z4", text)
+
+    # 3. Fix Layout (Insert newline every 4 bars if missing)
+    if "|" in text and "\n" not in text:
+        # Split by bars and rejoin with line breaks every 4 bars
+        bars = text.split("|")
+        new_text = ""
+        for i, bar in enumerate(bars):
+            new_text += bar + "|"
+            if (i + 1) % 4 == 0:
+                new_text += "\n"
+        text = new_text
+
+    # 4. Remove empty chords []
+    text = text.replace("[]", "")
+
+    return text
 
 def generate():
     # 1. Load Tokenizer
@@ -92,10 +110,10 @@ def generate():
         raise FileNotFoundError(f"Vocab file not found at {VOCAB_PATH}")
     tokenizer = MusicTokenizer()
     tokenizer.load(VOCAB_PATH)
-    vocab_size = len(tokenizer.vocab)
-    print(f"   Tokenizer Vocab Size: {vocab_size}")
+    default_vocab_size = len(tokenizer.vocab)
+    print(f"   Tokenizer Vocab Size: {default_vocab_size}")
 
-    # 2. Resolve Checkpoint Path Logic
+    # 2. Resolve Checkpoint Path
     ckpt_path = CHECKPOINT_PATH
     if not os.path.exists(ckpt_path):
         print(f"❌ Checkpoint {ckpt_path} not found!")
@@ -106,29 +124,36 @@ def generate():
         else:
             return
 
-    # 3. Smart Size Adjustment
-    # The checkpoint might have a slightly different size (e.g. 1620 vs 1619)
-    # We must initialize the model with the SIZE IN THE FILE, not the json size.
-    trained_vocab_size = get_checkpoint_vocab_size(ckpt_path)
+    # 3. Load Data & Detect Size
+    state_dict, trained_vocab_size = load_checkpoint_data(ckpt_path)
     
-    if trained_vocab_size is not None and trained_vocab_size != vocab_size:
-        print(f"   ⚠️ Mismatch detected! Model trained with {trained_vocab_size}, but vocab.json has {vocab_size}.")
-        print(f"   🔧 Adjusting model initialization to {trained_vocab_size} to match weights.")
-        vocab_size = trained_vocab_size
+    if state_dict is None:
+        print("❌ Failed to load checkpoint data.")
+        return
 
-    # 4. Initialize Model Architecture
+    # 4. Handle Vocab Size Mismatch
+    # Use the size found in the checkpoint weights, otherwise use tokenizer size
+    final_vocab_size = default_vocab_size
+    if trained_vocab_size is not None and trained_vocab_size != default_vocab_size:
+        print(f"   ⚠️ Mismatch detected! Model trained with {trained_vocab_size}, but vocab.json has {default_vocab_size}.")
+        print(f"   🔧 Adjusting model initialization to {trained_vocab_size} to match weights.")
+        final_vocab_size = trained_vocab_size
+
+    # 5. Initialize Model
     if MODEL_SIZE not in model_configs:
         raise ValueError(f"Unknown model size: {MODEL_SIZE}")
     
-    config = GPTConfig(vocab_size=vocab_size, block_size=256, **model_configs[MODEL_SIZE])
+    config = GPTConfig(vocab_size=final_vocab_size, block_size=256, **model_configs[MODEL_SIZE])
     model = GPT(config)
     model.to(DEVICE)
 
-    # 5. Load Learned Weights
-    model = load_checkpoint_robust(model, ckpt_path)
+    # 6. Load Weights (Strict=False allows minor mismatches, but keys should now be clean)
+    msg = model.load_state_dict(state_dict, strict=False)
+    print(f"   Weights loaded. Missing keys: {len(msg.missing_keys)}")
+
     model.eval()
 
-    # 6. Generation Loop
+    # 7. Generation Loop
     print(f"🎵 Generating {MAX_NEW_TOKENS} tokens (Temp={TEMPERATURE}, Penalty={REPETITION_PENALTY})...")
     
     start_id = tokenizer.vocab["<start>"]
@@ -171,7 +196,7 @@ def generate():
 
     print(f"   Done in {time.time()-start_time:.2f}s")
 
-    # 7. Decode to Text
+    # 8. Decode to Text
     generated_ids = idx[0].tolist()
     
     abc_tokens = []
@@ -190,8 +215,11 @@ def generate():
     
     output_text = "".join(abc_tokens)
     
-    # FORMATTING FIX: Insert newlines after bars
+    # FORMATTING FIX: Insert newlines after bars (Initial pass)
     output_text = output_text.replace("|", "|\n")
+    
+    # --- SANITIZE OUTPUT FOR PLAYERS (NEW STEP) ---
+    output_text = sanitize_abc(output_text)
     
     if "X:" not in output_text:
         header = "X:1\nT:Generated Song\nM:4/4\nL:1/8\nK:C\n"
