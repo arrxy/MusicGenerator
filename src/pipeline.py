@@ -15,6 +15,21 @@ def process_single_file(file_path):
 
 
 class DataPipeline:
+    """
+    Orchestrates the ETL pipeline to prepare a MIDI dataset for LLM training.
+
+    The pipeline performs the following steps:
+    1. Discovery: Scans for .mid files and applies a pre-filter for file size (>200KB).
+    2. Transformation: Converts MIDI to ABC notation in parallel using `ProcessPoolExecutor`.
+    3. Validation: Filters converted strings based on sequence length (approx. 20-50k tokens).
+    4. Tokenization: Builds and saves a custom vocabulary via `MusicTokenizer`.
+    5. Export: Shuffles and splits data into train (98%), val (1%), and test (1%) sets, 
+       formatting them with `<|endoftext|>` delimiters for GPT-style training.
+
+    Args:
+        cfg: Configuration object containing file paths and processing parameters.
+        config present in configs/config.yaml
+    """
     def __init__(self, cfg):
         self.cfg = cfg
         self.raw_dir = Path(cfg.paths.raw_dir)
@@ -30,9 +45,8 @@ class DataPipeline:
         glitch_count = 0
         too_short_count = 0
 
-        # SAFETY LIMITS
         MAX_ABC_LEN = 250000  # Approx 50k tokens
-        MIN_ABC_LEN = 100  # Approx 20 tokens (Filter out empty/2-token files)
+        MIN_ABC_LEN = 100  # Approx 20 tokens
 
         with ProcessPoolExecutor(max_workers=self.cfg.processing.max_workers) as exc:
             futures = {exc.submit(process_single_file, p): p for p in all_midis}
@@ -60,7 +74,6 @@ class DataPipeline:
 
         print(f"Successfully converted {len(valid_songs)} songs.")
 
-        # 3. Tokenization & Vocab Building
         tokenizer = MusicTokenizer()
         print("Building vocabulary...")
         vocab_size = tokenizer.build_vocab(valid_songs)
@@ -79,7 +92,6 @@ class DataPipeline:
         print(f"Vocabulary Size     : {vocab_size:,}")
         print("=" * 40 + "\n")
 
-        # 4. Splitting
         self._save_splits(valid_songs)
 
     def _save_splits(self, songs):

@@ -7,7 +7,7 @@ paths:
   output_dir: "./data/processed"
 
 processing:
-  max_workers: 6           # M4 Pro/Max can handle 10-14 safely. Standard M4 use 6-8.
+  max_workers: 6
   min_size_kb: 1
   max_size_kb: 200
-  timeout: 10              # Seconds to wait for midi2abc before killing it
+  timeout: 10             

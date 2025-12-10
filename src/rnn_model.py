@@ -14,12 +14,7 @@ class RNNModel(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        
-        # Embedding Layer
         self.token_embedding = nn.Embedding(config.vocab_size, config.embed_dim)
-        
-        # LSTM Stack
-        # batch_first=True expects input shape (batch, seq_len, features)
         self.lstm = nn.LSTM(
             input_size=config.embed_dim,
             hidden_size=config.hidden_dim,
@@ -28,11 +23,7 @@ class RNNModel(nn.Module):
             batch_first=True
         )
         
-        # Output Head
         self.lm_head = nn.Linear(config.hidden_dim, config.vocab_size)
-
-        # Weight tying (optional but standard for good LMs)
-        # Only works if embed_dim == hidden_dim
         if config.embed_dim == config.hidden_dim:
             self.lm_head.weight = self.token_embedding.weight
 
@@ -53,9 +44,6 @@ class RNNModel(nn.Module):
                     torch.nn.init.orthogonal_(param.data)
                 elif 'bias' in name:
                     torch.nn.init.zeros_(param.data)
-                    # Initialize forget gate bias to 1 to help long-term memory
-                    # Pytorch LSTM bias is [b_ig | b_fg | b_gg | b_og]
-                    # We want to set the second quarter (forget gate) to 1
                     n = param.size(0)
                     start, end = n // 4, n // 2
                     param.data[start:end].fill_(1.0)
@@ -64,22 +52,13 @@ class RNNModel(nn.Module):
         return sum(p.numel() for p in self.parameters())
 
     def forward(self, idx, targets=None):
-        # idx: (batch, seq_len)
         b, t = idx.size()
-        
-        # 1. Embed tokens
-        x = self.token_embedding(idx) # (batch, seq, embed_dim)
-        
-        # 2. Run LSTM
-        # We don't pass initial hidden state; it defaults to zeros
-        x, _ = self.lstm(x) # (batch, seq, hidden_dim)
-        
-        # 3. Project to vocab
-        logits = self.lm_head(x) # (batch, seq, vocab_size)
+        x = self.token_embedding(idx)
+        x, _ = self.lstm(x)
+        logits = self.lm_head(x)
 
         loss = None
         if targets is not None:
-            # Flatten for CrossEntropyLoss
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
 
         return logits, loss

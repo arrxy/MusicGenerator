@@ -7,25 +7,35 @@ import logging
 class MusicTokenizer:
     def __init__(self, patch_size=64):
         """
+        A structure-aware tokenizer for ABC music notation that implements 'Bar-Stream Patching' based on paper: https://arxiv.org/abs/2410.17584.
+
+        Unlike standard NLP tokenizers, this class respects musical boundaries by ensuring
+        token sequences are aligned to bar lines. It parses ABC strings into atomic musical 
+        elements (notes, durations, bar lines) using regex, and then segments them into 
+        fixed-size patches.
+
+        Key Features:
+        - Atomic Tokenization: regex-based parsing of pitches, accidentals, and rhythm.
+        - Bar-Stream Patching: Splits music by measures (`|`) and pads each measure 
+        into fixed-length vectors (default 64) to preserve metrical alignment.
+        - Vocabulary Management: Handles special tokens (<pad>, <start>, <unk>) and 
+        generates corpus statistics.
+
+        Notes: [A-G] with accidentals ^_, octaves ', and duration digits
+        Bar lines: |, ||, |:, :|, |]
+        Brackets: [ ]
+        Rests: z with duration digits
+
         Args:
-            patch_size (int): The fixed size for bar patches (default 64 from ISMIR paper).
+            patch_size (int): The fixed token length for each bar patch. Bars shorter than 
+                            this are padded; longer bars are split into multiple patches.
         """
         self.patch_size = patch_size
-        
-        # Updated Regex to better capture complex bar lines (like :| or |])
-        # 1. Notes: [A-G] with accidentals ^_, octaves ', and duration digits
-        # 2. Bar lines: matches |, ||, |:, :|, |]
-        # 3. Brackets: [ ]
-        # 4. Rests: z plus duration
         self.pattern = re.compile(r"([A-Ga-g][,']*\d*|[\^_]?[A-Ga-g][,']*\d*|\|[:|\]]*|[:|\[]*\||\[|\]|z\d*)")
-        
-        # Vocab initialization
-        # <pad> is 0, which is standard for masking in Transformers
         self.vocab = {"<pad>": 0, "<start>": 1, "<end>": 2, "<unk>": 3}
         self.reverse_vocab = {}
 
     def tokenize(self, text: str) -> List[str]:
-        """Standard atom-level tokenization (Raw list of strings)."""
         return self.pattern.findall(text)
 
     def tokenize_bar_stream(self, text: str) -> List[List[int]]:
@@ -64,12 +74,8 @@ class MusicTokenizer:
         Splits a variable length bar into fixed-size patches with padding.
         """
         patches = []
-        
-        # Loop through tokens in chunks of self.patch_size
         for i in range(0, len(tokens), self.patch_size):
             chunk = tokens[i : i + self.patch_size]
-            
-            # Pad if shorter than patch_size
             if len(chunk) < self.patch_size:
                 padding_needed = self.patch_size - len(chunk)
                 chunk.extend([self.vocab["<pad>"]] * padding_needed)

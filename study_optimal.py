@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from src.model import GPT, GPTConfig
 from src.dataset import MusicStreamingDataset
 
-# --- H100 HYPERPERFORMANCE CONFIG ---
+# --- H200 HYPERPERFORMANCE CONFIG ---
 BLOCK_SIZE = 256
 BATCH_SIZE = 512        # Massive batch size for 80GB VRAM
 LEARNING_RATE = 6e-4    # Increased LR for larger batch size
@@ -19,28 +19,26 @@ INSIGHTS_FILE = "optimal_training_log.txt"
 CSV_FILE = "optimal_results.csv"
 
 # --- TRAINING DURATION CONFIG ---
-TOKEN_MULTIPLIER = 200  # Was 20. Now 200 (10x "over-training" for deep convergence)
-NUM_EPOCHS = 50         # Explicitly train for this many passes over the dataset
+TOKEN_MULTIPLIER = 200  
+NUM_EPOCHS = 50
 
-# Detect Hardware & Enable Optimizations
 if torch.cuda.is_available():
     DEVICE = 'cuda'
-    # Enable TF32 (TensorFloat-32) for massive speedup on Ampere/Hopper
     torch.backends.cuda.matmul.allow_tf32 = True 
     torch.backends.cudnn.allow_tf32 = True
-    print(f"🚀 Powered by NVIDIA {torch.cuda.get_device_name(0)}")
+    print(f"GPU {torch.cuda.get_device_name(0)}")
 else:
     DEVICE = 'cpu'
-    print("⚠️ Warning: No GPU detected. This script requires an H100/A100.")
+    print("No GPU detected. This script requires an H100/A100/H200.")
 
-# Model Family: NO CAPS. Full Chinchilla Optimal Budgets.
+# Model Family Configurations
 model_configs = {
-    # Name      Layer, Head, Embd    Approx Params
-    "Tiny":     dict(n_layer=4,  n_head=4,  n_embd=128), 
-    "Small":    dict(n_layer=6,  n_head=6,  n_embd=288), 
-    "Medium":   dict(n_layer=8,  n_head=8,  n_embd=512), 
-    "Large":    dict(n_layer=10, n_head=10, n_embd=640), 
-    "XL":       dict(n_layer=12, n_head=12, n_embd=768), 
+    # Name           Layer,      Head,      Embd          Approx Params
+    "Tiny":     dict(n_layer=4,  n_head=4,  n_embd=128),  # ~1M
+    "Small":    dict(n_layer=6,  n_head=6,  n_embd=288),  # ~5M
+    "Medium":   dict(n_layer=8,  n_head=8,  n_embd=512),  # ~20M
+    "Large":    dict(n_layer=10, n_head=10, n_embd=640),  # ~50M
+    "XL":       dict(n_layer=12, n_head=12, n_embd=768),  # ~100M
 }
 
 def estimate_loss(model, val_loader, eval_iters=200):
@@ -50,8 +48,6 @@ def estimate_loss(model, val_loader, eval_iters=200):
     model.eval()
     losses = []
     accuracies = []
-    
-    # Use bfloat16 for validation too
     ctx = torch.amp.autocast(device_type='cuda', dtype=torch.bfloat16) if DEVICE == 'cuda' else torch.no_grad()
     
     with torch.no_grad():
@@ -79,26 +75,18 @@ def train_optimal(name, cfg):
     print(f"\n============================================")
     print(f"🚀 Initializing Extended Run: {name}")
 
-    # 1. Setup Model
     temp_vocab_size = 1620 
     config = GPTConfig(vocab_size=temp_vocab_size, block_size=BLOCK_SIZE, bias=True, **cfg)
     model = GPT(config).to(DEVICE)
     params = model.get_num_params()
     
-    # 2. Calculate Extended Budget
-    # Using TOKEN_MULTIPLIER (e.g., 200 instead of 20)
+    # Calculate Token Budget 200x Model Parameters
     target_tokens = max(params * TOKEN_MULTIPLIER, 500_000_000)
-    print(f"📊 Parameters: {params:,}")
-    print(f"🎯 Extended Target: {target_tokens/1e6:.1f}M tokens (Multiplier: {TOKEN_MULTIPLIER}x)")
-    print(f"🔄 Epochs: {NUM_EPOCHS}")
-
-    # 3. Compile Model (The H100 Secret Weapon)
-    print("🔧 Compiling model with torch.compile()...")
+    print(f" Parameters: {params:,}")
+    print(f" Extended Target: {target_tokens/1e6:.1f}M tokens (Multiplier: {TOKEN_MULTIPLIER}x)")
+    print(f" Epochs: {NUM_EPOCHS}")
+    print(" Compiling model with torch.compile()...")
     model = torch.compile(model)
-
-    # 4. Setup Dataset
-    # We pass target_tokens to ensure the dataset object doesn't cap us early,
-    # but the loop below is what really drives the duration.
     train_ds = MusicStreamingDataset(TRAIN_PATH, VOCAB_PATH, BLOCK_SIZE, max_tokens=target_tokens)
     val_ds = MusicStreamingDataset(VAL_PATH, VOCAB_PATH, BLOCK_SIZE)
     
@@ -108,7 +96,7 @@ def train_optimal(name, cfg):
     
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
-    # 5. Training Loop with Mixed Precision
+    # Training Loop with Mixed Precision
     model.train()
     start_time = time.time()
     tokens_seen = 0
@@ -148,16 +136,10 @@ def train_optimal(name, cfg):
         pass # Clean exit from nested loops
     
     total_time = time.time() - start_time
-
-    # 6. Final Validation
     print("   Running final validation...")
     val_loss, val_acc = estimate_loss(model, val_loader)
-    print(f"🏁 Final Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}")
-
-    # --- SAVE RESULTS ---
+    print(f" Final Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}")
     log_to_csv([name, params, tokens_seen, val_loss, val_acc, total_time])
-    
-    # Insights text
     tokens_per_sec = tokens_seen / total_time if total_time > 0 else 0
     insight_text = (
         f"--------------------------------------------------\n"
@@ -189,7 +171,7 @@ if __name__ == "__main__":
     except RuntimeError:
         pass
 
-    models_to_train = ["Medium", "Large", "XL"] 
+    models_to_train = ["Tiny","Small","Medium","Large","XL"] 
     
     for name in models_to_train:
         if name in model_configs:

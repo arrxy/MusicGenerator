@@ -8,16 +8,19 @@ logger = logging.getLogger(__name__)
 
 
 def _clean_abc(content: str) -> str:
+    """
+    Cleans ABC content by removing unwanted headers and comments.
+    Only allow headers that describe MUSIC, not file info Other headers like T: (title), C: (composer) are omitted as they were creating garbage tokens
+    Allowed headers are Key, Meter, Unit Note Length, Tempo, Voice, Part
+    """
     lines = content.splitlines()
     cleaned = []
-
-    # Only allow headers that describe MUSIC, not file info
     allowed_headers = ("K:", "M:", "L:", "Q:", "V:", "P:")
 
     for l in lines:
         l = l.strip()
         if not l: continue
-        if l.startswith('%'): continue # Remove comments
+        if l.startswith('%'): continue
 
         if len(l) > 2 and l[1] == ':':
             if l.startswith(allowed_headers):
@@ -36,6 +39,7 @@ class MidiToAbcConverter:
         """
         Converts MIDI to ABC using the native 'midi2abc' CLI tool.
         Returns the ABC string or None if conversion failed.
+        It creates a temporary file for the ABC output and deletes it after reading.
         """
         abc_path = None
         try:

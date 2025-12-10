@@ -264,81 +264,93 @@ if __name__ == "__main__":
         generate_scratch()
     else:
         # Put your starting ABC here!
-        my_start = """X:1759
-T:F\"ur Elise
-T:Bagatelle No.25 in A, WoO.59
-C:Ludwig van Beethoven
-O:Germany
-Z:Transcribed by Frank Nordberg - http://www.musicaviva.com
-F:http://abc.musicaviva.com/tunes/beethoven-ludwig-van/be059/be059-pno2.abc
-V:1 Program 1 0 %Piano
-V:2 Program 1 0 bass %Piano
-M:3/8
-L:1/16
-Q:3/8=40
-K:Am
-V:1
-e^d|e^deB=dc|A2 z CEA|B2 z E^GB|c2 z Ee^d|
-V:2
-z2|z6|A,,E,A, z z2|E,,E,^G, z z2|A,,E,A, z z2|
-%
-V:1
-e^deB=dc|A2 z CEA|B2 z EcB|[1A2 z2:|[2A2z Bcd|
-V:2
-z6|A,,E,A, z z2|E,,E,^G, z z2|[1A,,E,A, z :|[2A,,E,A, z z2|
-%
-V:1
-|:e3 Gfe|d3 Fed|c3 Edc|B2 z Ee z|z ee' z z ^d|
-V:2
-|:C,E,C z z2|G,,G,B, z z2|A,,E,A, z z2|E,,E,E z z E|e z z ^de z|
-%
-V:1
-e z z ^ded|e^deB=dc|A2 z CEA|B2 zE^GB|c2 z Ee^d|
-V:2
-z ^de z z2|z6|A,,E,A, z z2|E,,E,^G, z z2|A,,E,A, z z2|
-%
-V:1
-e^deB=dc|A2 z CEA|B2 z EcB|[1A2 z Bcd:|
-V:2
-z6|A,,E,A, z z2|E,,E,^G, z z2|[1A,,E,A, z z2:|
-%
-V:1
-[2A2 z [Ec][Fc][EGc]|c4 f>e|e2d2 _b>a|agfedc|
-V:2
-[2A,,E,A, [_B,C][A,C][G,B,C]|F,A,CA,CA,|F,_B,DB,DB,|F,E[F,G,_B,]E[F,G,B,]E|
-%
-V:1
-_B2A2 A/G/A/B/|c4 d^d|e3 efA|c4 d>B|
-V:2
-F,A,CA,CA,|F,A,CA,CA,|E,A,CA,[D,D]F,|G,EG,EG,F|
-%
-V:1
-c/g/G/g/ A/g/B/g/ c/g/d/g/|e/g/c'/b/ a/g/f/e/ d/g/f/d/|c/g/G/g/ A/g/B/g/ c/g/d/g/|
-V:2
-[C2E2] z [FG][EG][DFG]|[C2E2G2] [F,2A,2][F,2A,2]|C2 z [FG][EG][DFG]|
-%
-V:1
-e/g/c'/b/ a/g/f/e/ d/g/f/d/|e/f/e/^d/ e/B/e/d/ e/B/e/d/|e3 Be^d|e3 Be z|
-V:2
-[C2E2G2] [F,2A,2][G,2B,2]|[^G,2B,2] z2 z2|z6|z4 z ^d|
-%
-V:1
-z ^de z z d|e^deB=dc|A2 z CEA|B2 z E^GB|c2 z Ee^d|
-V:2
-e z z ^de z|z6|A,,E,A, z z2|E,,E,^G, z z2|A,,E,A, z z2|
-%
-V:1
-e^deB=dc|A2 z CEA|B2 z EcB|A2 z Bcd|e3 Gfe|
-V:2
-z6|A,,E,A, z z2|E,,E,^G, z z2|A,,E,A, z z2|C,E,C z z2|
-%
-V:1
-d3 Fed|c3 Edc|B2 z Ee z|z ee' zz ^d|e z z ^ded|
-V:2
-G,,G,B, z z2|A,,E,A, z z2|E,,E,E z z E|e z z ^de z|z ^de z z2|
-%
-V:1
-e^deB=dc|A2 z CEA|B2 z E^GB|c2 z Ee^d|e^deB=dc|A2 z CEA|
-V:2
-z6|A,,E,A, z z2|E,,E,^G, z"""
+#         my_start = """X:1759
+# T:F\"ur Elise
+# T:Bagatelle No.25 in A, WoO.59
+# C:Ludwig van Beethoven
+# O:Germany
+# Z:Transcribed by Frank Nordberg - http://www.musicaviva.com
+# F:http://abc.musicaviva.com/tunes/beethoven-ludwig-van/be059/be059-pno2.abc
+# V:1 Program 1 0 %Piano
+# V:2 Program 1 0 bass %Piano
+# M:3/8
+# L:1/16
+# Q:3/8=40
+# K:Am
+# V:1
+# e^d|e^deB=dc|A2 z CEA|B2 z E^GB|c2 z Ee^d|
+# V:2
+# z2|z6|A,,E,A, z z2|E,,E,^G, z z2|A,,E,A, z z2|
+# %
+# V:1
+# e^deB=dc|A2 z CEA|B2 z EcB|[1A2 z2:|[2A2z Bcd|
+# V:2
+# z6|A,,E,A, z z2|E,,E,^G, z z2|[1A,,E,A, z :|[2A,,E,A, z z2|
+# %
+# V:1
+# |:e3 Gfe|d3 Fed|c3 Edc|B2 z Ee z|z ee' z z ^d|
+# V:2
+# |:C,E,C z z2|G,,G,B, z z2|A,,E,A, z z2|E,,E,E z z E|e z z ^de z|
+# %
+# V:1
+# e z z ^ded|e^deB=dc|A2 z CEA|B2 zE^GB|c2 z Ee^d|
+# V:2
+# z ^de z z2|z6|A,,E,A, z z2|E,,E,^G, z z2|A,,E,A, z z2|
+# %
+# V:1
+# e^deB=dc|A2 z CEA|B2 z EcB|[1A2 z Bcd:|
+# V:2
+# z6|A,,E,A, z z2|E,,E,^G, z z2|[1A,,E,A, z z2:|
+# %
+# V:1
+# [2A2 z [Ec][Fc][EGc]|c4 f>e|e2d2 _b>a|agfedc|
+# V:2
+# [2A,,E,A, [_B,C][A,C][G,B,C]|F,A,CA,CA,|F,_B,DB,DB,|F,E[F,G,_B,]E[F,G,B,]E|
+# %
+# V:1
+# _B2A2 A/G/A/B/|c4 d^d|e3 efA|c4 d>B|
+# V:2
+# F,A,CA,CA,|F,A,CA,CA,|E,A,CA,[D,D]F,|G,EG,EG,F|
+# %
+# V:1
+# c/g/G/g/ A/g/B/g/ c/g/d/g/|e/g/c'/b/ a/g/f/e/ d/g/f/d/|c/g/G/g/ A/g/B/g/ c/g/d/g/|
+# V:2
+# [C2E2] z [FG][EG][DFG]|[C2E2G2] [F,2A,2][F,2A,2]|C2 z [FG][EG][DFG]|
+# %
+# V:1
+# e/g/c'/b/ a/g/f/e/ d/g/f/d/|e/f/e/^d/ e/B/e/d/ e/B/e/d/|e3 Be^d|e3 Be z|
+# V:2
+# [C2E2G2] [F,2A,2][G,2B,2]|[^G,2B,2] z2 z2|z6|z4 z ^d|
+# %
+# V:1
+# z ^de z z d|e^deB=dc|A2 z CEA|B2 z E^GB|c2 z Ee^d|
+# V:2
+# e z z ^de z|z6|A,,E,A, z z2|E,,E,^G, z z2|A,,E,A, z z2|
+# %
+# V:1
+# e^deB=dc|A2 z CEA|B2 z EcB|A2 z Bcd|e3 Gfe|
+# V:2
+# z6|A,,E,A, z z2|E,,E,^G, z z2|A,,E,A, z z2|C,E,C z z2|
+# %
+# V:1
+# d3 Fed|c3 Edc|B2 z Ee z|z ee' zz ^d|e z z ^ded|
+# V:2
+# G,,G,B, z z2|A,,E,A, z z2|E,,E,E z z E|e z z ^de z|z ^de z z2|
+# %
+# V:1
+# e^deB=dc|A2 z CEA|B2 z E^GB|c2 z Ee^d|e^deB=dc|A2 z CEA|
+# V:2
+# z6|A,,E,A, z z2|E,,E,^G, z"""
+        my_start = """X:1
+T:Abercairney House [1]
+M:C
+L:1/8
+R:Reel
+C:Nathaniel Gow
+B:John McLachlan - Piper’s Assistant (1854, No. 79, p. 45)
+Z:AK/Fiddler’s Companion
+K:Amix
+c/d/|eAcA eAca|dGBG dGBg|eAcA eAca|gegB B<AA:|
+g|aega eace|decg BGdB|aega eace|dBgB A2Ag|
+aega eace|decg BGdB|eAcA eAca|gegB B<AA||"""
         generate_continuation(my_start)

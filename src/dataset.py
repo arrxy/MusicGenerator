@@ -4,13 +4,20 @@ from .tokenizer import MusicTokenizer
 
 
 class MusicStreamingDataset(IterableDataset):
+    """
+    An IterableDataset designed for training Large Language Models (LLMs) on massive datasets
+    that cannot fit into memory.
+    
+    It streams data line-by-line from a text file, tokenizes it on the fly, and yields 
+    contiguous batches of tokens for next-token prediction.
+    """
     def __init__(self, file_path, vocab_path, block_size, max_tokens=None):
         """
         Args:
             file_path: Path to train.txt
             vocab_path: Path to vocab.json
             block_size: Sequence length (context window)
-            max_tokens: Stop iteration after this many tokens (for strict 100M limit)
+            max_tokens: Stop iteration after this many tokens have been yielded (for scaling studies).
         """
         self.file_path = file_path
         self.tokenizer = MusicTokenizer()
@@ -25,11 +32,9 @@ class MusicStreamingDataset(IterableDataset):
 
         with open(self.file_path, 'r', encoding='utf-8') as f:
             for line in f:
-                # Stop if we hit the scaling study limit
                 if self.max_tokens and tokens_yielded >= self.max_tokens:
                     return
 
-                # Skip song separators if they are just newlines
                 if not line.strip(): continue
 
                 tokens = self.tokenizer.tokenize(line)
@@ -37,10 +42,9 @@ class MusicStreamingDataset(IterableDataset):
 
                 buffer.extend(token_ids)
 
-                # Yield chunks of block_size + 1 (for x and y)
                 while len(buffer) >= self.block_size + 1:
                     chunk = buffer[:self.block_size + 1]
-                    buffer = buffer[self.block_size:]  # Stride
+                    buffer = buffer[self.block_size:]
 
                     x = torch.tensor(chunk[:-1], dtype=torch.long)
                     y = torch.tensor(chunk[1:], dtype=torch.long)
