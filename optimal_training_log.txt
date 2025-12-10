@@ -65,3 +65,13 @@ Validation Accuracy: 0.7610
 Training Time: 153.4 min
 Speed: 1,096,173 tok/s
 --------------------------------------------------
+--------------------------------------------------
+Model: XL
+Parameters: 86,496,768
+Epochs Completed: 2
+Tokens Trained: 17,299,392,512
+Validation Loss: 0.7972
+Validation Accuracy: 0.7660
+Training Time: 403.3 min
+Speed: 714,895 tok/s
+--------------------------------------------------
