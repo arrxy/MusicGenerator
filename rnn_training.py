@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 from src.rnn_model import RNNModel, RNNConfig
 from src.dataset import MusicStreamingDataset
 
-# --- CONFIGURATION ---
 BLOCK_SIZE = 256
 BATCH_SIZE = 512        
 LEARNING_RATE = 1e-3    
@@ -24,18 +23,16 @@ TARGET_PARAMS = {
     "Large": 50_000_000
 }
 
-# Fixed Budget for Scaling Law Study
 TOKEN_BUDGET = 100_000_000  # 100 Million Tokens
 
 if torch.cuda.is_available():
     DEVICE = 'cuda'
-    torch.backends.cuda.matmul.allow_tf32 = True 
-    print(f"🚀 Powered by NVIDIA {torch.cuda.get_device_name(0)}")
+    torch.backends.cuda.matmul.allow_tf32 = True
+    print(f"{torch.cuda.get_device_name(0)}")
 else:
     DEVICE = 'cpu'
 
 def find_optimal_rnn_config(target_params, vocab_size=1620):
-    """Finds hidden_dim to match target parameter count."""
     best_diff = float('inf')
     best_config = None
     best_params = 0
@@ -77,26 +74,13 @@ def log_to_csv(data):
         writer.writerow(data)
 
 def train_rnn(name, target_p):
-    print(f"\n============================================")
-    print(f"🔬 RNN Scaling Run: {name} (Target: {target_p/1e6:.1f}M Params)")
-
-    # 1. Setup Config
     config, actual_params = find_optimal_rnn_config(target_p, vocab_size=1620)
-    print(f"   Architecture: Hidden={config.hidden_dim}, Layers={config.n_layers}")
-    print(f"   Actual Params: {actual_params:,}")
-    
     model = RNNModel(config).to(DEVICE)
-    
-    # 2. Setup Data
     train_ds = MusicStreamingDataset(TRAIN_PATH, VOCAB_PATH, BLOCK_SIZE, max_tokens=TOKEN_BUDGET)
     val_ds = MusicStreamingDataset(VAL_PATH, VOCAB_PATH, BLOCK_SIZE)
-    
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, num_workers=4, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, num_workers=4, pin_memory=True)
-    
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
-    
-    # 3. Training Loop
     model.train()
     start_time = time.time()
     tokens_seen = 0
@@ -108,18 +92,14 @@ def train_rnn(name, target_p):
     try:
         for X, Y in train_loader:
             X, Y = X.to(DEVICE), Y.to(DEVICE)
-            
             model.zero_grad(set_to_none=True)
             _, loss = model(X, Y)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            
             optimizer.step()
             scheduler.step()
-            
             tokens_seen += X.numel()
             step += 1
-            
             if step % 50 == 0:
                 dt = time.time() - start_time
                 speed = tokens_seen / dt
@@ -129,22 +109,16 @@ def train_rnn(name, target_p):
                 break
                 
     except KeyboardInterrupt:
-        print("⚠️ Stopped by user.")
+        print("Stopped by user.")
 
     total_time = time.time() - start_time
     avg_speed = tokens_seen / total_time
-    
-    # 4. Final Validation
-    print("   Running validation...")
     val_loss = estimate_loss(model, val_loader)
-    print(f"🏁 RNN {name} Final Loss: {val_loss:.4f}")
-    
-    # 5. Save Model WITH CONFIG
     ckpt_filename = f"ckpt_rnn_{name}.pt"
-    print(f"💾 Saving checkpoint to {ckpt_filename}...")
+    print(f"Saving checkpoint to {ckpt_filename}...")
     torch.save({
         'state_dict': model.state_dict(),
-        'config': config, # Save the config object directly
+        'config': config,
         'params': actual_params
     }, ckpt_filename)
 

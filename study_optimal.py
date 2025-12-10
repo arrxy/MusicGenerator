@@ -42,9 +42,6 @@ model_configs = {
 }
 
 def estimate_loss(model, val_loader, eval_iters=200):
-    """
-    Validation with mixed precision context.
-    """
     model.eval()
     losses = []
     accuracies = []
@@ -73,19 +70,12 @@ def log_to_csv(data):
 
 def train_optimal(name, cfg):
     print(f"\n============================================")
-    print(f"🚀 Initializing Extended Run: {name}")
 
     temp_vocab_size = 1620 
     config = GPTConfig(vocab_size=temp_vocab_size, block_size=BLOCK_SIZE, bias=True, **cfg)
     model = GPT(config).to(DEVICE)
     params = model.get_num_params()
-    
-    # Calculate Token Budget 200x Model Parameters
     target_tokens = max(params * TOKEN_MULTIPLIER, 500_000_000)
-    print(f" Parameters: {params:,}")
-    print(f" Extended Target: {target_tokens/1e6:.1f}M tokens (Multiplier: {TOKEN_MULTIPLIER}x)")
-    print(f" Epochs: {NUM_EPOCHS}")
-    print(" Compiling model with torch.compile()...")
     model = torch.compile(model)
     train_ds = MusicStreamingDataset(TRAIN_PATH, VOCAB_PATH, BLOCK_SIZE, max_tokens=target_tokens)
     val_ds = MusicStreamingDataset(VAL_PATH, VOCAB_PATH, BLOCK_SIZE)
@@ -93,52 +83,35 @@ def train_optimal(name, cfg):
     num_workers = 8 
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True)
-    
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
-
-    # Training Loop with Mixed Precision
     model.train()
     start_time = time.time()
     tokens_seen = 0
     step = 0
-    
-    # Enable BFloat16 Autocast
     ctx = torch.amp.autocast(device_type='cuda', dtype=torch.bfloat16)
-
     try:
         for epoch in range(NUM_EPOCHS):
-            print(f"\n--- Epoch {epoch+1}/{NUM_EPOCHS} ---")
-            
             for X, Y in train_loader:
                 X, Y = X.to(DEVICE, non_blocking=True), Y.to(DEVICE, non_blocking=True)
-                
                 optimizer.zero_grad(set_to_none=True)
-                
                 with ctx:
                     logits, loss = model(X, Y)
-                
                 loss.backward()
                 optimizer.step()
-                
                 tokens_seen += X.numel()
                 step += 1
-                
                 if step % 50 == 0:
                     t_rate = tokens_seen / (time.time() - start_time)
                     print(f"   Step {step} | Loss: {loss.item():.4f} | Speed: {t_rate/1000:.1f}k tok/s | Total: {tokens_seen/1e6:.1f}M / {target_tokens/1e6:.1f}M")
-
-                # Optional: Early stop if we blow past the massive target budget significantly
                 if tokens_seen >= target_tokens:
-                    print(f"✅ Reached Target Token Budget ({target_tokens:,} tokens)")
-                    raise StopIteration # Break out of nested loops
+                    print(f"Reached Target Token Budget ({target_tokens:,} tokens)")
+                    raise StopIteration
                     
     except StopIteration:
-        pass # Clean exit from nested loops
+        pass
     
     total_time = time.time() - start_time
-    print("   Running final validation...")
     val_loss, val_acc = estimate_loss(model, val_loader)
-    print(f" Final Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}")
     log_to_csv([name, params, tokens_seen, val_loss, val_acc, total_time])
     tokens_per_sec = tokens_seen / total_time if total_time > 0 else 0
     insight_text = (
@@ -155,10 +128,8 @@ def train_optimal(name, cfg):
     )
     with open(INSIGHTS_FILE, "a") as f:
         f.write(insight_text)
-
-    # 7. Save Model & Clean
     ckpt_path = f"ckpt_{name}_extended.pt"
-    print(f"💾 Saving checkpoint to {ckpt_path}...")
+    print(f" Saving checkpoint to {ckpt_path}...")
     torch.save(model.state_dict(), ckpt_path)
     
     del model, optimizer, X, Y

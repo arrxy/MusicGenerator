@@ -1,0 +1,151 @@
+1.
+====================================================================================
+
+
+X:1
+T:Speed the Plough
+M:4/4
+C:Trad.
+K:G
+|:GABc dedB|dedB dedB|c2ec B2dB|c2A2 A2BA|
+  GABc dedB|dedB dedB|c2ec B2dB|A2F2 G4:|
+|:g2gf gdBd|g2f2 e2d2|c2ec B2dB|c2A2 A2df|
+  g2gf g2Bd|g2f2 e2d2|c2ec B2dB|A2F2 G4:|
+
+=====================================================================================
+Generated
+
+eedegCadG|
+GABcdedB|
+dedBdedB|
+c2ecB2dB|
+c2A2A2BA|
+GABcdedB|
+dedBdedB|
+c2ecB2dB|
+A2F2G4|
+|
+g2gfgdBd|
+g2f2e2d2|
+c2ecB2dB|
+c2A2A2df|
+g2gfg2Bd|
+g2f2e2d2|
+c2ecB2dB|
+A2F2G4|
+A12A24c12A24cBA2c12A,,24C12c2cbce,c12cC,32d12c2e8
+=====================================================================================
+
+2.
+=====================================================================================
+X:1
+T:Happy Birthday
+C:Traditional
+M:3/4
+L:1/8
+K:G
+D2 D2 | E4 D4 G4 | F8 D2 D2 | E4 D4 A4 | G8 D2 D2 | d4 B4 G4 | F4 E4 c2 c2 | B4 G4 A4 | G8 |]
+
+============
+Generated
+
+aBdaCadaGD2D2|
+E4D4G4|
+F8D2D2|
+E4D4A4|
+G8D2D2|
+d4B4G4|
+F4E4c2c2|
+B4G4A4|
+G8|
+]F2_D,,8f'4zB,,32B,24z4B,,4A24e'd'3E,,]f3e''f48F,,256_D12_d8B,,24^C,,8c''4E,,12_E,,2F,,16z4F,,16_D,,6b'a_B2G24f8f32^F,48|
+G,48e8E,,3e'f12a64F24e2_E6F,,6^c48F,32g'2
+=====================================================================================
+3.
+X:1
+T:Fur Elise
+C:Beethoven
+M:3/8
+L:1/16
+Q:1/8=100
+K:Am
+e^d e^d e B =d c | A2 z C E A | B2 z E ^G B | c2 z E e ^d |
+e^d e^d e B =d c | A2 z C E A | B2 z E c B | A4 z2 |]
+=====================================================================================
+FEeCBeeeAe^de^deBdc|
+A2zCEA|
+B2zE^GB|
+c2zEe^d|
+e^de^deBdc|
+A2zCEA|
+B2zEcB|
+A4z2|
+=====================================================================================
+4.
+
+
+X:1
+T:Twinkle Twinkle Little Star
+M:4/4
+L:1/4
+Q:1/4=100
+K:C
+C C G G | A A G2 | F F E E | D D C2 |
+G G F F | E E D2 | G G F F | E E D2 |]
+=====================================================================================
+Generated Song
+
+eeeaCCCGG|
+AAG2|
+FFEE|
+DDC2|
+GGFF|
+EED2|
+GGFF|
+EED2|
+=====================================================================================
+5.
+
+X:1
+T:Tetris Theme
+M:4/4
+L:1/4
+Q:1/4=140
+K:Am
+e3/2 B/ c d | c/ B/ A3/2 A/ c | e3/2 d/ c B | c d e c |
+A A3 |]
+=====================================================================================
+Generated Song
+
+eeeAe3Bcd|
+cBA3Ac|
+e3dcB|
+cdec|
+AA3|
+]
+
+=====================================================================================
+6.
+
+X:1
+T:Greensleeves
+M:6/8
+L:1/8
+Q:1/8=120
+K:Am
+A | c2 d e>f e | d2 B G>A B | c2 A A>^G A | B2 ^G E2 A |
+c2 d e>f e | d2 B G>A B | c>B A ^G>F ^G | A3 A2 |]
+
+=====================================================================================
+Generated Song
+
+GeeeeeAA|
+c2defe|
+d2BGAB|
+c2AA^GA|
+B2^GE2A|
+c2defe|
+d2BGAB|
+cBA^GF^G|
+A3A2|
+]
