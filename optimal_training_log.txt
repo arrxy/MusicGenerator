@@ -1,33 +1,6 @@
 --------------------------------------------------
 Model: Tiny
 Parameters: 1,033,472
-Tokens Trained: 100,007,936
-Validation Loss: 1.6818
-Validation Accuracy: 0.5517
-Training Time: 0.3 min
-Speed: 5,502,389 tok/s
---------------------------------------------------
---------------------------------------------------
-Model: Small
-Parameters: 6,535,296
-Tokens Trained: 130,809,856
-Validation Loss: 1.6463
-Validation Accuracy: 0.5533
-Training Time: 0.6 min
-Speed: 3,360,486 tok/s
---------------------------------------------------
---------------------------------------------------
-Model: Medium
-Parameters: 26,180,608
-Tokens Trained: 523,632,640
-Validation Loss: 1.1700
-Validation Accuracy: 0.6640
-Training Time: 4.8 min
-Speed: 1,829,933 tok/s
---------------------------------------------------
---------------------------------------------------
-Model: Tiny
-Parameters: 1,033,472
 Epochs Completed: 1
 Tokens Trained: 500,039,680
 Validation Loss: 1.2217
