@@ -7,7 +7,7 @@ from src.model import GPT, GPTConfig
 from src.tokenizer import MusicTokenizer
 
 # --- CONFIGURATION ---
-MODEL_SIZE = "Large"         # Must match the checkpoint filename
+MODEL_SIZE = "XL"         # Must match the checkpoint filename
 CHECKPOINT_PATH = f"ckpt_{MODEL_SIZE}_extended.pt" 
 VOCAB_PATH = "data/processed/vocab.json"
 MAX_NEW_TOKENS = 512         # Length of the song
