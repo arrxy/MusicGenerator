@@ -9,7 +9,7 @@ try:
     from src.model import GPT, GPTConfig
     from src.dataset import MusicStreamingDataset
 except ImportError:
-    print("⚠️  Warning: 'src' modules not found. Ensure you are in the project root.")
+    print("Warning: 'src' modules not found. Ensure you are in the project root.")
 
 # CONFIG
 CHECKPOINT_PATH = "ckpt_Tiny_robust.pt"
@@ -98,8 +98,9 @@ def evaluate(model, loader):
                 _, loss = model(X, Y)
                 losses.append(loss.item())
 
+                # Removed len(loader) which caused the TypeError
                 if i % 10 == 0:
-                    print(f"   Batch {i}/{len(loader)}: Loss {loss.item():.4f}", end="\r")
+                    print(f"   Batch {i}: Loss {loss.item():.4f}", end="\r")
 
     avg_loss = sum(losses) / len(losses)
     perplexity = math.exp(avg_loss)
@@ -111,7 +112,7 @@ def evaluate(model, loader):
 
 if __name__ == "__main__":
     if not os.path.exists(CHECKPOINT_PATH):
-        print(f"❌ Error: Checkpoint file '{CHECKPOINT_PATH}' not found.")
+        print(f"Error: Checkpoint file '{CHECKPOINT_PATH}' not found.")
     else:
         # Load Dataset
         val_ds = MusicStreamingDataset(VAL_DATA_PATH, VOCAB_PATH, BLOCK_SIZE)
