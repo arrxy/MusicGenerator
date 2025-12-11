@@ -105,20 +105,16 @@ def train_optimal(name, cfg):
     params = model.get_num_params()
 
     # --- CHECKPOINT LOADING LOGIC ---
-    ckpt_filename = f"ckpt_{name}_extended.pt"
-    if os.path.exists(ckpt_filename):
-        print(f"🔄 Found checkpoint: {ckpt_filename}. Resuming training...")
+    ckpt_filename_robust = f"ckpt_{name}_robust.pt"
+    ckpt_filename_extended = f"ckpt_{name}_extended.pt"
+    if os.path.exists(ckpt_filename_robust):
+        print(f"🔄 Found checkpoint: {ckpt_filename_robust}. Resuming training...")
         try:
-            # Load with weights_only=False to support legacy/robust formats
-            checkpoint = torch.load(ckpt_filename, map_location=DEVICE, weights_only=False)
-
-            # Handle Robust Checkpoint (Dict) vs Legacy (State Dict)
+            checkpoint = torch.load(ckpt_filename_robust, map_location=DEVICE, weights_only=False)
             if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
                 state_dict = checkpoint['model_state_dict']
             else:
                 state_dict = checkpoint
-
-            # Clean prefixes (from torch.compile or DataParallel)
             clean_state = {}
             for k, v in state_dict.items():
                 if k.startswith("_orig_mod."):
@@ -129,12 +125,34 @@ def train_optimal(name, cfg):
                     clean_state[k] = v
 
             model.load_state_dict(clean_state)
-            print("✅ Weights loaded successfully.")
+            print("Weights loaded successfully from robust checkpoint. Continuing training from last checkpoint.")
+        except Exception as e:
+            print(f"❌ Error loading checkpoint: {e}")
+            print("⚠️  Starting from scratch instead.")
+    elif os.path.exists(ckpt_filename_extended):
+        try:
+
+            checkpoint = torch.load(ckpt_filename_extended, map_location=DEVICE, weights_only=False)
+            if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+                state_dict = checkpoint['model_state_dict']
+            else:
+                state_dict = checkpoint
+            clean_state = {}
+            for k, v in state_dict.items():
+                if k.startswith("_orig_mod."):
+                    clean_state[k[10:]] = v
+                elif k.startswith("module."):
+                    clean_state[k[7:]] = v
+                else:
+                    clean_state[k] = v
+
+            model.load_state_dict(clean_state)
+            print("Weights loaded successfully from extended checkpoint. Continuing training from last checkpoint.")
         except Exception as e:
             print(f"❌ Error loading checkpoint: {e}")
             print("⚠️  Starting from scratch instead.")
     else:
-        print(f"✨ No checkpoint found ({ckpt_filename}). Initializing from scratch.")
+        print(f"✨ No checkpoint found ({ckpt_filename_robust}). Initializing from scratch.")
 
     # Calculate token budget
     target_tokens = max(params * TOKEN_MULTIPLIER, 500_000_000)
