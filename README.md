@@ -23,8 +23,8 @@ Tested Hardware: NVIDIA A100 / H100 / H200 GPU instances (specifically Digital O
 1. Clone the Repository:
 
 ```
-git clone [Your Repository URL Here]
-cd [Your Repository Name]
+git clone https://github.com/arrxy/MusicGenerator.git
+cd MusicGenerator
 ```
 2. Install midi2abc: This is required for the data conversion pipeline. Install the command-line tool
     on your machine. _(Installation process varies by OS, e.g.,_ sudo apt-get install midi2abc _on_
