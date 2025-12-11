@@ -25,7 +25,7 @@ except ImportError:
 # %%
 # --- FILES ---
 CHECKPOINT_PATH = "ckpt_XL_extended.pt"  # <--- Your specific checkpoint
-TEST_DATA_PATH = "data/processed/val.txt"  # <--- Test data
+TEST_DATA_PATH = "data/processed/train.txt"  # <--- Test data
 VOCAB_PATH = "data/processed/vocab.json"
 
 # --- HARDWARE (H200 Optimized) ---
