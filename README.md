@@ -108,7 +108,4 @@ This script requires defining an initial sequence (ABC prefix) _inside the scrip
 # Then run the script:
 uv run python generate_continuation.py
 ```
-Note: For generation, refer to the configuration variables (MODEL_SIZE, CHECKPOINT_PATH,
-MAX NEW TOKENS, TEMPERATURE, etc.) located within the respective Python scripts (generate.py or
-
-
+Note: For generation, refer to the configuration variables (MODEL_SIZE, CHECKPOINT_PATH, MAX_NEW_TOKENS, TEMPERATURE, etc.) located within the respective Python scripts (generate.py or generate_continuation.py).
