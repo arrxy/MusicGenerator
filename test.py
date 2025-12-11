@@ -1,163 +1,82 @@
-# %% [markdown]
-# # Test Set Evaluation Script (H200 Optimized)
-# This script calculates the final Test Loss and Perplexity for the XL_extended model.
-
-# %%
 import os
 import time
 import math
 import torch
-import torch.nn as nn
-from torch.nn import functional as F
 from torch.utils.data import DataLoader
-import numpy as np
 
-# Import project modules
-try:
-    from src.model import GPT, GPTConfig
-    from src.dataset import MusicStreamingDataset
-except ImportError:
-    print("⚠️  Warning: 'src' modules not found. Ensure you are in the project root.")
+from src.model import GPT, GPTConfig
+from src.dataset import MusicStreamingDataset
 
-# %% [markdown]
-# ## 1. Configuration
-
-# %%
-# --- FILES ---
-CHECKPOINT_PATH = "ckpt_XL_extended.pt"  # <--- Your specific checkpoint
-TEST_DATA_PATH = "data/processed/train.txt"  # <--- Test data
+CHECKPOINT_PATH = "ckpt_XL_extended.pt"
+VAL_DATA_PATH = "data/processed/val.txt"
 VOCAB_PATH = "data/processed/vocab.json"
 
-# --- HARDWARE (H200 Optimized) ---
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-BATCH_SIZE = 128  # H200 has 141GB VRAM, we can handle large batches easily
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BLOCK_SIZE = 256
-NUM_WORKERS = 4  # Speed up data loading
+BATCH_SIZE = 128
+NUM_WORKERS = 4
+VOCAB_SIZE = 1620
 
-# --- MODEL ARCHITECTURE ---
-# Ensure this matches the config used to train 'XL_extended.pt'
-# Assuming standard GPT-2 Base width (768) based on previous turns.
-# If your model is actually 864 width, change n_embd to 864.
-XL_CONFIG = dict(n_layer=12, n_head=12, n_embd=768, dropout=0.0)
+MODEL_CONFIG = dict(
+    n_layer=12,
+    n_head=12,
+    n_embd=768,
+    dropout=0.0,
+    bias=True
+)
 
+def load_model(checkpoint_path):
+    config = GPTConfig(
+        vocab_size=VOCAB_SIZE,
+        block_size=BLOCK_SIZE,
+        **MODEL_CONFIG
+    )
+    model = GPT(config).to(DEVICE)
+    state = torch.load(checkpoint_path, map_location=DEVICE, weights_only=False)
 
-# %% [markdown]
-# ## 2. Evaluation Logic
+    clean_state = {}
+    for k, v in state.items():
+        if k.startswith("_orig_mod."):
+            clean_state[k[10:]] = v
+        elif k.startswith("module."):
+            clean_state[k[7:]] = v
+        else:
+            clean_state[k] = v
 
-# %%
-def load_checkpoint(checkpoint_path, vocab_size):
-    print(f"🚀 Initializing model on {DEVICE}...")
+    model.load_state_dict(clean_state)
 
-    # Init Skeleton
-    gpt_conf = GPTConfig(vocab_size=vocab_size, block_size=BLOCK_SIZE, bias=True, **XL_CONFIG)
-    model = GPT(gpt_conf)
-
-    # Load Weights
-    print(f"📂 Loading weights from: {checkpoint_path}")
-    if not os.path.exists(checkpoint_path):
-        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
-
-    # Updated for PyTorch 2.6+: explicit weights_only=False to allow loading older pickles
-    state_dict = torch.load(checkpoint_path, map_location=DEVICE, weights_only=False)
-
-    # Fix dict prefixes if they exist (from torch.compile or DataParallel)
-    if list(state_dict.keys())[0].startswith('module.'):
-        state_dict = {k[7:]: v for k, v in state_dict.items()}
-    if list(state_dict.keys())[0].startswith('_orig_mod.'):
-        state_dict = {k[10:]: v for k, v in state_dict.items()}
-
-    model.load_state_dict(state_dict)
-    model.to(DEVICE)
-
-    # H200 Optimization: Compile for faster inference
-    # Note: Compilation has a startup cost, but runs faster afterwards.
-    # Useful if your test set is large.
     try:
-        print("⚡ Compiling model for H200...")
         model = torch.compile(model)
-    except Exception as e:
-        print(f"Could not compile (skipping): {e}")
+    except Exception:
+        pass
 
     model.eval()
     return model
 
-
-def evaluate(model, data_loader):
-    model.eval()
+def evaluate(model, loader):
     losses = []
-    start_time = time.time()
-
-    # Using Automatic Mixed Precision (AMP) for H200 acceleration
-    # bfloat16 is native and preferred on H100/H200
-    dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
-    print(f"🔧 Precision: {dtype}")
+    start = time.time()
 
     with torch.no_grad():
-        for k, (X, Y) in enumerate(data_loader):
-            X, Y = X.to(DEVICE), Y.to(DEVICE)
-
-            with torch.autocast(device_type=DEVICE, dtype=dtype):
+        with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
+            for X, Y in loader:
+                X, Y = X.to(DEVICE), Y.to(DEVICE)
                 _, loss = model(X, Y)
-
-            losses.append(loss.item())
-
-            if k % 50 == 0 and k > 0:
-                print(f"   Batch {k} | Loss: {loss.item():.4f}")
-
-    total_time = time.time() - start_time
-
-    if not losses:
-        return 0.0, 0.0, 0.0
+                losses.append(loss.item())
 
     avg_loss = sum(losses) / len(losses)
     perplexity = math.exp(avg_loss)
+    duration = time.time() - start
+    return avg_loss, perplexity, duration
 
-    return avg_loss, perplexity, total_time
-
-
-# %% [markdown]
-# ## 3. Main Execution
-
-# %%
 if __name__ == "__main__":
-    print("=" * 50)
-    print(f"H200 TEST SET EVALUATION")
-    print("=" * 50)
+    val_ds = MusicStreamingDataset(VAL_DATA_PATH, VOCAB_PATH, BLOCK_SIZE)
+    val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, pin_memory=True, num_workers=NUM_WORKERS)
 
-    # 1. Setup Data
-    try:
-        test_ds = MusicStreamingDataset(TEST_DATA_PATH, VOCAB_PATH, BLOCK_SIZE)
-        # Use num_workers to feed the GPU faster
-        test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, pin_memory=True, num_workers=NUM_WORKERS)
+    model = load_model(CHECKPOINT_PATH)
 
-        # Override vocab size to match your specific checkpoint history (1620)
-        # Change this to test_ds.vocab_size if you retrained from scratch
-        vocab_size = 1620
-        print(f"📚 Vocab Size: {vocab_size}")
-    except Exception as e:
-        print(f"❌ Data Error: {e}")
-        exit()
+    loss, ppl, t = evaluate(model, val_loader)
 
-    # 2. Load Model
-    try:
-        model = load_checkpoint(CHECKPOINT_PATH, vocab_size)
-        print(f"✅ Model loaded successfully.")
-    except Exception as e:
-        print(f"❌ Model Error: {e}")
-        exit()
-
-    # 3. Run Test
-    print(f"\n🏃 Starting Test Loop on {TEST_DATA_PATH}...")
-    loss, ppl, duration = evaluate(model, test_loader)
-
-    # 4. Results
-    print("\n" + "=" * 50)
-    print(f"🏁 FINAL TEST RESULTS")
-    print("=" * 50)
-    print(f"Model:      XL_extended.pt")
-    print(f"Dataset:    {TEST_DATA_PATH}")
-    print("-" * 50)
-    print(f"📉 Test Loss:       {loss:.5f}")
-    print(f"🔮 Test Perplexity: {ppl:.5f}")
-    print(f"⏱️  Duration:        {duration:.2f}s")
-    print("=" * 50)
+    print("Test Loss:", f"{loss:.5f}")
+    print("Perplexity:", f"{ppl:.5f}")
+    print("Time:", f"{t:.2f}s")
