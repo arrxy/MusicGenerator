@@ -15,15 +15,18 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BLOCK_SIZE = 256
 BATCH_SIZE = 128
 NUM_WORKERS = 4
-VOCAB_SIZE = 1620
+VOCAB_SIZE = 1619
 
-MODEL_CONFIG = dict(
-    n_layer=12,
-    n_head=12,
-    n_embd=768,
-    dropout=0.0,
-    bias=True
-)
+
+
+model_configs = {
+    "Tiny":   dict(n_layer=4,  n_head=4,  n_embd=128, dropout=0.0, bias=True),
+    "Small":  dict(n_layer=6,  n_head=6,  n_embd=288, dropout=0.0, bias=True),
+    "Medium": dict(n_layer=8,  n_head=8,  n_embd=512, dropout=0.0, bias=True),
+    "Large":  dict(n_layer=10, n_head=10, n_embd=640, dropout=0.0, bias=True),
+    "XL":     dict(n_layer=12, n_head=12, n_embd=768, dropout=0.0, bias=True),
+}
+MODEL_CONFIG = model_configs["Tiny"]
 
 def load_model(checkpoint_path):
     config = GPTConfig(
