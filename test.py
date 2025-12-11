@@ -57,7 +57,8 @@ def load_checkpoint(checkpoint_path, vocab_size):
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
-    state_dict = torch.load(checkpoint_path, map_location=DEVICE)
+    # Updated for PyTorch 2.6+: explicit weights_only=False to allow loading older pickles
+    state_dict = torch.load(checkpoint_path, map_location=DEVICE, weights_only=False)
 
     # Fix dict prefixes if they exist (from torch.compile or DataParallel)
     if list(state_dict.keys())[0].startswith('module.'):
