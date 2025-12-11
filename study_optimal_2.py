@@ -261,7 +261,7 @@ if __name__ == "__main__":
     except RuntimeError:
         pass
 
-    models_to_train = ["Large", "XL"]
+    models_to_train = ["Medium", "Large", "XL"]
 
     for name in models_to_train:
         if name in model_configs:
