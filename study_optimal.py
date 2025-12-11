@@ -15,6 +15,7 @@ LEARNING_RATE = 6e-4    # Increased LR for larger batch size
 VOCAB_PATH = "data/processed/vocab.json"
 TRAIN_PATH = "data/processed/train.txt"
 VAL_PATH = "data/processed/val.txt"
+TEST_PATH = "data/processed/test.txt"
 INSIGHTS_FILE = "optimal_training_log.txt"
 CSV_FILE = "optimal_results.csv"
 
@@ -76,13 +77,16 @@ def train_optimal(name, cfg):
     model = GPT(config).to(DEVICE)
     params = model.get_num_params()
     target_tokens = max(params * TOKEN_MULTIPLIER, 500_000_000)
+    target_tokens = min(target_tokens, 5_000_000_000)
     model = torch.compile(model)
     train_ds = MusicStreamingDataset(TRAIN_PATH, VOCAB_PATH, BLOCK_SIZE, max_tokens=target_tokens)
     val_ds = MusicStreamingDataset(VAL_PATH, VOCAB_PATH, BLOCK_SIZE)
+    test_ds = MusicStreamingDataset(TEST_PATH, VOCAB_PATH, BLOCK_SIZE)
     
     num_workers = 8 
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True)
+    test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, num_workers=num_workers, pin_memory=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
     model.train()
     start_time = time.time()
@@ -112,7 +116,8 @@ def train_optimal(name, cfg):
     
     total_time = time.time() - start_time
     val_loss, val_acc = estimate_loss(model, val_loader)
-    log_to_csv([name, params, tokens_seen, val_loss, val_acc, total_time])
+    testng_loss, testng_acc = estimate_loss(model, test_loader)
+    log_to_csv([name, params, tokens_seen, val_loss, val_acc, testng_loss, testng_acc, total_time])
     tokens_per_sec = tokens_seen / total_time if total_time > 0 else 0
     insight_text = (
         f"--------------------------------------------------\n"
@@ -122,6 +127,8 @@ def train_optimal(name, cfg):
         f"Tokens Trained: {tokens_seen:,}\n"
         f"Validation Loss: {val_loss:.4f}\n"
         f"Validation Accuracy: {val_acc:.4f}\n"
+        f"Test Loss: {testng_loss:.4f}\n"
+        f"Test Accuracy: {testng_acc:.4f}\n"
         f"Training Time: {total_time/60:.1f} min\n"
         f"Speed: {tokens_per_sec:,.0f} tok/s\n"
         f"--------------------------------------------------\n"
