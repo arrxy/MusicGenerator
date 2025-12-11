@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from src.model import GPT, GPTConfig
 from src.dataset import MusicStreamingDataset
 
-CHECKPOINT_PATH = "ckpt_XL_extended.pt"
+CHECKPOINT_PATH = "ckpt_Tiny_robust.pt"
 VAL_DATA_PATH = "data/processed/val.txt"
 VOCAB_PATH = "data/processed/vocab.json"
 
