@@ -11,8 +11,7 @@ try:
 except ImportError:
     print("Warning: 'src' modules not found. Ensure you are in the project root.")
 
-# CONFIG
-CHECKPOINT_PATH = "ckpt_Small_robust.pt"
+CHECKPOINT_PATH = "ckpt_Medium_robust.pt"
 VAL_DATA_PATH = "data/processed/test.txt"
 VOCAB_PATH = "data/processed/vocab.json"
 
@@ -22,7 +21,6 @@ BATCH_SIZE = 128
 NUM_WORKERS = 4
 VOCAB_SIZE = 1620
 
-# Ensure this matches the architecture used during training
 model_configs = {
     "Tiny": dict(n_layer=4, n_head=4, n_embd=128, dropout=0.0, bias=True),
     "Small": dict(n_layer=6, n_head=6, n_embd=288, dropout=0.0, bias=True),
@@ -30,13 +28,12 @@ model_configs = {
     "Large": dict(n_layer=10, n_head=10, n_embd=640, dropout=0.0, bias=True),
     "XL": dict(n_layer=12, n_head=12, n_embd=768, dropout=0.0, bias=True),
 }
-MODEL_CONFIG = model_configs["Small"]
+MODEL_CONFIG = model_configs["Medium"]
 
 
 def load_model(checkpoint_path):
     print(f"Loading checkpoint from {checkpoint_path}...")
 
-    # 1. Initialize model structure first
     config = GPTConfig(
         vocab_size=VOCAB_SIZE,
         block_size=BLOCK_SIZE,
@@ -44,14 +41,10 @@ def load_model(checkpoint_path):
     )
     model = GPT(config).to(DEVICE)
 
-    # 2. Load the checkpoint file
-    # weights_only=False is needed because we are loading a complex dict, not just weights
     checkpoint = torch.load(checkpoint_path, map_location=DEVICE, weights_only=False)
 
-    # 3. FIX: Extract the state dict if it's nested inside a dictionary
-    # Your training script saves it under 'model_state_dict'
     if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
-        print("   -> Found nested 'model_state_dict', extracting weights...")
+        print("Found nested 'model_state_dict', extracting weights")
         state_dict = checkpoint["model_state_dict"]
     else:
         state_dict = checkpoint

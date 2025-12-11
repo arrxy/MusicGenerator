@@ -156,7 +156,7 @@ def train_optimal(name, cfg):
 
     # Calculate token budget
     target_tokens = max(params * TOKEN_MULTIPLIER, 500_000_000)
-    target_tokens = min(target_tokens, 5_000_000_000)
+    target_tokens = min(target_tokens, 2_000_000_000)
 
     # Compile
     # Note: We keep a reference to the compiled model for training
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     except RuntimeError:
         pass
 
-    models_to_train = ["Tiny", "Small", "Medium", "Large", "XL"]
+    models_to_train = ["Large", "XL"]
 
     for name in models_to_train:
         if name in model_configs:
