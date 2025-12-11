@@ -20,7 +20,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BLOCK_SIZE = 256
 BATCH_SIZE = 128
 NUM_WORKERS = 4
-VOCAB_SIZE = 1619
+VOCAB_SIZE = 1620
 
 # Ensure this matches the architecture used during training
 model_configs = {
