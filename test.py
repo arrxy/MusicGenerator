@@ -12,7 +12,7 @@ except ImportError:
     print("Warning: 'src' modules not found. Ensure you are in the project root.")
 
 # CONFIG
-CHECKPOINT_PATH = "ckpt_Tiny_robust.pt"
+CHECKPOINT_PATH = "ckpt_Small_robust.pt"
 VAL_DATA_PATH = "data/processed/test.txt"
 VOCAB_PATH = "data/processed/vocab.json"
 
@@ -30,7 +30,7 @@ model_configs = {
     "Large": dict(n_layer=10, n_head=10, n_embd=640, dropout=0.0, bias=True),
     "XL": dict(n_layer=12, n_head=12, n_embd=768, dropout=0.0, bias=True),
 }
-MODEL_CONFIG = model_configs["Tiny"]
+MODEL_CONFIG = model_configs["Small"]
 
 
 def load_model(checkpoint_path):
