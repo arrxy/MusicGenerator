@@ -6,16 +6,14 @@ import torch
 import numpy as np
 from torch.utils.data import DataLoader
 
-# Import project modules
 try:
     from src.model import GPT, GPTConfig
     from src.dataset import MusicStreamingDataset
 except ImportError:
-    print("⚠️  Warning: 'src' modules not found.")
+    print("Warning: 'src' modules not found.")
 
-# --- H200 HYPERPERFORMANCE CONFIG ---
 BLOCK_SIZE = 256
-BATCH_SIZE = 512  # Massive batch size for 80GB/141GB VRAM
+BATCH_SIZE = 512
 BASE_LEARNING_RATE = 6e-4
 VOCAB_PATH = "data/processed/vocab.json"
 TRAIN_PATH = "data/processed/train.txt"
@@ -24,7 +22,6 @@ TEST_PATH = "data/processed/test.txt"
 INSIGHTS_FILE = "optimal_training_log.txt"
 CSV_FILE = "optimal_results.csv"
 
-# --- TRAINING DURATION CONFIG ---
 TOKEN_MULTIPLIER = 200
 NUM_EPOCHS = 50
 
@@ -37,7 +34,6 @@ else:
     DEVICE = 'cpu'
     print("No GPU detected.")
 
-# --- FIX 1: Add Dropout to prevent overfitting ---
 model_configs = {
     "Tiny": dict(n_layer=4, n_head=4, n_embd=128, dropout=0.1),
     "Small": dict(n_layer=6, n_head=6, n_embd=288, dropout=0.1),
@@ -48,21 +44,14 @@ model_configs = {
 
 
 def estimate_loss(model, val_loader, eval_iters=200):
-    """
-    Evaluates loss.
-    If eval_iters is None, it runs the FULL dataset (used for final report).
-    If eval_iters is set (e.g. 200), it runs a partial check (used for speed during training).
-    """
     model.eval()
     losses = []
     accuracies = []
-    # Use bfloat16 for H200 evaluation
     ctx = torch.amp.autocast(device_type='cuda', dtype=torch.bfloat16) if DEVICE == 'cuda' else torch.no_grad()
 
     with torch.no_grad():
         with ctx:
             for k, (X, Y) in enumerate(val_loader):
-                # Break only if eval_iters is set (not None)
                 if eval_iters is not None and k >= eval_iters:
                     break
 
@@ -90,25 +79,19 @@ def log_to_csv(data):
 def train_optimal(name, cfg):
     print(f"\n============================================")
     print(f"🚀 TRAINING MODEL: {name}")
-
-    # --- Scale LR for larger models ---
     current_lr = BASE_LEARNING_RATE
     if name in ["Large", "XL"]:
         current_lr = 3e-4
-        print(f"ℹ️  Adjusted LR to {current_lr} for large model stability")
+        print(f"Adjusted LR to {current_lr} for large model stability")
 
     temp_vocab_size = 1620
-
-    # Init Model Config
     config = GPTConfig(vocab_size=temp_vocab_size, block_size=BLOCK_SIZE, bias=True, **cfg)
     model = GPT(config).to(DEVICE)
     params = model.get_num_params()
-
-    # --- CHECKPOINT LOADING LOGIC ---
     ckpt_filename_robust = f"ckpt_{name}_robust.pt"
     ckpt_filename_extended = f"ckpt_{name}_extended.pt"
     if os.path.exists(ckpt_filename_robust):
-        print(f"🔄 Found checkpoint: {ckpt_filename_robust}. Resuming training...")
+        print(f"Found checkpoint: {ckpt_filename_robust}. Resuming training...")
         try:
             checkpoint = torch.load(ckpt_filename_robust, map_location=DEVICE, weights_only=False)
             if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
@@ -127,8 +110,8 @@ def train_optimal(name, cfg):
             model.load_state_dict(clean_state)
             print("Weights loaded successfully from robust checkpoint. Continuing training from last checkpoint.")
         except Exception as e:
-            print(f"❌ Error loading checkpoint: {e}")
-            print("⚠️  Starting from scratch instead.")
+            print(f"Error loading checkpoint: {e}")
+            print("Starting from scratch instead.")
     elif os.path.exists(ckpt_filename_extended):
         try:
 
@@ -149,20 +132,13 @@ def train_optimal(name, cfg):
             model.load_state_dict(clean_state)
             print("Weights loaded successfully from extended checkpoint. Continuing training from last checkpoint.")
         except Exception as e:
-            print(f"❌ Error loading checkpoint: {e}")
-            print("⚠️  Starting from scratch instead.")
+            print(f"Error loading checkpoint: {e}")
+            print("Starting from scratch instead.")
     else:
-        print(f"✨ No checkpoint found ({ckpt_filename_robust}). Initializing from scratch.")
+        print(f"No checkpoint found ({ckpt_filename_robust}). Initializing from scratch.")
 
-    # Calculate token budget
     target_tokens = max(params * TOKEN_MULTIPLIER, 500_000_000)
-    target_tokens = min(target_tokens, 2_000_000_000)
-
-    # Compile
-    # Note: We keep a reference to the compiled model for training
     compiled_model = torch.compile(model)
-
-    # Datasets
     train_ds = MusicStreamingDataset(TRAIN_PATH, VOCAB_PATH, BLOCK_SIZE, max_tokens=target_tokens)
     val_ds = MusicStreamingDataset(VAL_PATH, VOCAB_PATH, BLOCK_SIZE)
     test_ds = MusicStreamingDataset(TEST_PATH, VOCAB_PATH, BLOCK_SIZE)
@@ -207,16 +183,10 @@ def train_optimal(name, cfg):
         pass
 
     total_time = time.time() - start_time
-
-    # --- FINAL EVALUATION (FULL DATASET) ---
     print("Running FINAL FULL evaluation (this may take a moment)...")
-    # Setting eval_iters=None ensures we test the WHOLE dataset, matching your reload script
     val_loss, val_acc = estimate_loss(compiled_model, val_loader, eval_iters=None)
     testng_loss, testng_acc = estimate_loss(compiled_model, test_loader, eval_iters=None)
-
     log_to_csv([name, params, tokens_seen, val_loss, val_acc, testng_loss, testng_acc, total_time])
-
-    # Insights
     tokens_per_sec = tokens_seen / total_time if total_time > 0 else 0
     insight_text = (
         f"--------------------------------------------------\n"
@@ -231,13 +201,8 @@ def train_optimal(name, cfg):
     with open(INSIGHTS_FILE, "a") as f:
         f.write(insight_text)
 
-    # --- SAVE ROBUST CHECKPOINT ---
-    # Saves config so you don't get "size mismatch" errors later
     ckpt_path = f"ckpt_{name}_robust.pt"
-    print(f"💾 Saving ROBUST checkpoint to {ckpt_path}...")
-
-    # Unwrap: Get the original model from the compiled wrapper
-    # This removes the '_orig_mod.' prefix that breaks loading scripts
+    print(f"Saving checkpoint to {ckpt_path}...")
     raw_model = compiled_model._orig_mod if hasattr(compiled_model, '_orig_mod') else compiled_model
 
     checkpoint_data = {

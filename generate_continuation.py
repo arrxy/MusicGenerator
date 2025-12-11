@@ -18,7 +18,7 @@ except ImportError:
     MusicTokenizer = None
 
 # --- CONFIGURATION ---
-MODEL_SIZE = "Small"  # Changed to Tiny to match your existing checkpoint
+MODEL_SIZE = "Medium"  # Changed to Tiny to match your existing checkpoint
 CHECKPOINT_PATH = f"ckpt_{MODEL_SIZE}_robust.pt"  # Changed to _robust.pt
 VOCAB_PATH = "data/processed/vocab.json"
 MAX_NEW_TOKENS = 500  # Length of the song
@@ -40,9 +40,7 @@ elif torch.backends.mps.is_available():
     DEVICE = 'mps'
 else:
     DEVICE = 'cpu'
-
 class JSONTokenizer:
-
     def __init__(self):
         self.vocab = {}
         self.reverse_vocab = {}
@@ -307,13 +305,21 @@ def generate_continuation(prompt_abc):
 
 
 if __name__ == "__main__":
-    my_start = """X: 1
-T: Für Elise
-C: Ludwig van Beethoven
-M: 3/8
-L: 1/16
-K: Am
-|: e^d e^d eB =dc | A2 zC EA | B2 zE ^GB | c2 zE e^d |
-e^d e^d eB =dc | A2 zC EA | B2 zE cB | A4 z2 :|"""
+    my_start = """M: 4/4
+L: 1/8
+Q:1/4=89
+K:C % 0 sharps
+V:1
+z8| \
+z3
+[c'e] c/2z/2[ae] c/2[ge]z/2| \
+z/2[ec]G/2 z/2[cG]z[A-E-]/2[AEC]/2z/2 [GE]z| \
+[EC]G,/2z/2 [CG,]E,/2[B,-G,-D,-]4[B,-G,-D,-]/2|
+[B,G,D,]z/2C/2- [EC-][G-C]/2G/2 cG EC| \
+E/2-[G-E]/2G/2cGE/2 z/2B,EG/2-[B-G]/2B/2| \
+GE B,E GB/2-[BG-]/2 G/2E/2z/2^A,/2-| \
+^A,/2EGAG/2- [GE-]/2E/2A, EG|
+^AG E/2F,-[=A,F,]CFCA,/2| \
+z/2[FCA,]3/2 z[ECG,-] G,/2z3/2 F,-[A,-F,-]"""
 
     generate_continuation(my_start)

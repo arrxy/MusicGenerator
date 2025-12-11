@@ -10,8 +10,8 @@ from src.dataset import MusicStreamingDataset
 
 # --- H200 HYPERPERFORMANCE CONFIG ---
 BLOCK_SIZE = 256
-BATCH_SIZE = 512        # Massive batch size for 80GB VRAM
-LEARNING_RATE = 6e-4    # Increased LR for larger batch size
+BATCH_SIZE = 512
+LEARNING_RATE = 6e-4
 VOCAB_PATH = "data/processed/vocab.json"
 TRAIN_PATH = "data/processed/train.txt"
 VAL_PATH = "data/processed/val.txt"

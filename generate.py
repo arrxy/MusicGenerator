@@ -7,20 +7,20 @@ from src.model import GPT, GPTConfig
 from src.tokenizer import MusicTokenizer
 
 # --- CONFIGURATION ---
-MODEL_SIZE = "Large"         # Must match the checkpoint filename
-CHECKPOINT_PATH = f"ckpt_{MODEL_SIZE}_extended.pt" 
+MODEL_SIZE = "Medium"  # Must match the checkpoint filename
+CHECKPOINT_PATH = f"ckpt_{MODEL_SIZE}_extended.pt"
 VOCAB_PATH = "data/processed/vocab.json"
-MAX_NEW_TOKENS = 300         # Length of the song
-TEMPERATURE = 0.95            # 1.0 = Random/Creative, 0.8 = Focused/Safe
-TOP_K = 600                  # Limit to top N most likely next notes
-REPETITION_PENALTY = 1.0     # Reduce probability of recently used tokens (1.0 = No penalty)
+MAX_NEW_TOKENS = 300  # Length of the song
+TEMPERATURE = 0.9  # 1.0 = Random/Creative, 0.8 = Focused/Safe
+TOP_K = 600  # Limit to top N most likely next notes
+REPETITION_PENALTY = 1.15  # Reduce probability of recently used tokens (1.0 = No penalty)
 
 model_configs = {
-    "Tiny":   dict(n_layer=4,  n_head=4,  n_embd=128, dropout=0.0, bias=True),
-    "Small":  dict(n_layer=6,  n_head=6,  n_embd=288, dropout=0.0, bias=True),
-    "Medium": dict(n_layer=8,  n_head=8,  n_embd=512, dropout=0.0, bias=True),
-    "Large":  dict(n_layer=10, n_head=10, n_embd=640, dropout=0.0, bias=True),
-    "XL":     dict(n_layer=12, n_head=12, n_embd=768, dropout=0.0, bias=True),
+    "Tiny": dict(n_layer=4, n_head=4, n_embd=128, dropout=0.0, bias=True),
+    "Small": dict(n_layer=6, n_head=6, n_embd=288, dropout=0.0, bias=True),
+    "Medium": dict(n_layer=8, n_head=8, n_embd=512, dropout=0.0, bias=True),
+    "Large": dict(n_layer=10, n_head=10, n_embd=640, dropout=0.0, bias=True),
+    "XL": dict(n_layer=12, n_head=12, n_embd=768, dropout=0.0, bias=True),
 }
 
 if torch.backends.mps.is_available():
@@ -29,6 +29,8 @@ elif torch.cuda.is_available():
     DEVICE = 'cuda'
 else:
     DEVICE = 'cpu'
+print(f"Running on device: {DEVICE.upper()}")
+
 
 def load_checkpoint_data(path):
     print(f"Loading checkpoint from {path}...")
@@ -43,10 +45,10 @@ def load_checkpoint_data(path):
         raw_state_dict = checkpoint
     clean_state_dict = {}
     vocab_size_found = None
-    
+
     for key, value in raw_state_dict.items():
         if key.startswith('_orig_mod.'):
-            new_key = key[10:] 
+            new_key = key[10:]
         else:
             new_key = key
         clean_state_dict[new_key] = value
@@ -54,6 +56,7 @@ def load_checkpoint_data(path):
             vocab_size_found = value.shape[0]
 
     return clean_state_dict, vocab_size_found
+
 
 def sanitize_abc(text):
     text = re.sub(r"([a-gA-G])'{3,}", r"\1''", text)
@@ -66,10 +69,13 @@ def sanitize_abc(text):
             new_text += bar + "|"
             if (i + 1) % 4 == 0:
                 new_text += "\n"
-        text = new_text
+        text = new_text.rstrip("|\n")
+        if text and text[-1] != '|':
+            text += '|'
     text = text.replace("[]", "")
 
     return text
+
 
 def generate():
     if not os.path.exists(VOCAB_PATH):
@@ -78,6 +84,7 @@ def generate():
     tokenizer.load(VOCAB_PATH)
     default_vocab_size = len(tokenizer.vocab)
     print(f"   Tokenizer Vocab Size: {default_vocab_size}")
+
     ckpt_path = CHECKPOINT_PATH
     if not os.path.exists(ckpt_path):
         print(f"Checkpoint {ckpt_path} not found!")
@@ -86,17 +93,23 @@ def generate():
             print(f"   Found {alt_path} instead. Switching to that.")
             ckpt_path = alt_path
         else:
+            print("   No valid checkpoint found. Generation aborted.")
             return
+
     state_dict, trained_vocab_size = load_checkpoint_data(ckpt_path)
     if state_dict is None:
         print("Failed to load checkpoint data.")
         return
+
     final_vocab_size = default_vocab_size
     if trained_vocab_size is not None and trained_vocab_size != default_vocab_size:
+        print(
+            f"   Mismatch: Vocab size is {default_vocab_size}, trained size was {trained_vocab_size}. Using trained size.")
         final_vocab_size = trained_vocab_size
+
     if MODEL_SIZE not in model_configs:
         raise ValueError(f"Unknown model size: {MODEL_SIZE}")
-    
+
     config = GPTConfig(vocab_size=final_vocab_size, block_size=256, **model_configs[MODEL_SIZE])
     model = GPT(config)
     model.to(DEVICE)
@@ -104,66 +117,72 @@ def generate():
     print(f"   Weights loaded. Missing keys: {len(msg.missing_keys)}")
 
     model.eval()
-    start_id = tokenizer.vocab["<start>"]
+
+    start_id = tokenizer.vocab.get("<start>", 0)
     idx = torch.tensor([[start_id]], dtype=torch.long, device=DEVICE)
 
     start_time = time.time()
-    
+    print(
+        f"\nGenerating {MAX_NEW_TOKENS} tokens (Temp={TEMPERATURE}, Top-K={TOP_K}, Repetition Penalty={REPETITION_PENALTY})...")
+
     with torch.no_grad():
         for _ in range(MAX_NEW_TOKENS):
-            idx_cond = idx if idx.size(1) <= 256 else idx[:, -256:]
+            idx_cond = idx if idx.size(1) <= config.block_size else idx[:, -config.block_size:]
+
             logits, _ = model(idx_cond)
             logits = logits[:, -1, :] / TEMPERATURE
+
             if REPETITION_PENALTY > 1.0:
                 lookback = 20
-                context = idx[0, -lookback:]
-                for token_id in context:
-                    if logits[0, token_id] < 0:
-                        logits[0, token_id] *= REPETITION_PENALTY
-                    else:
+                context = idx[0, -lookback:].tolist()
+                for token_id in set(context):
+                    if logits[0, token_id] > 0:
                         logits[0, token_id] /= REPETITION_PENALTY
+                    else:
+                        logits[0, token_id] *= REPETITION_PENALTY
+
             v, _ = torch.topk(logits, min(TOP_K, logits.size(-1)))
             logits[logits < v[:, [-1]]] = -float('Inf')
-            
+
             probs = F.softmax(logits, dim=-1)
             idx_next = torch.multinomial(probs, num_samples=1)
-            
+
             idx = torch.cat((idx, idx_next), dim=1)
-            
+
             if idx_next.item() == tokenizer.vocab.get("<end>", -1):
-                print("   Model generated <end> token.")
+                print("\n   Model generated <end> token. Stopping generation.")
                 break
 
-    print(f"   Done in {time.time()-start_time:.2f}s")
+    print(f"   Done in {time.time() - start_time:.2f}s")
     generated_ids = idx[0].tolist()
-    
+
     abc_tokens = []
     for i in generated_ids:
-        if i >= len(tokenizer.reverse_vocab):
-            continue
-        word = tokenizer.reverse_vocab.get(str(i), "") 
-        if not word: 
-             word = tokenizer.reverse_vocab.get(i, "")
+        word = tokenizer.reverse_vocab.get(str(i), "")
+        if not word:
+            word = tokenizer.reverse_vocab.get(i, "")
         if word in ["<start>", "<pad>", "<unk>"]: continue
         if word == "<end>": break
         abc_tokens.append(word)
-    
+
     output_text = "".join(abc_tokens)
+    output_text = output_text.replace("|\n", "|")
     output_text = output_text.replace("|", "|\n")
     output_text = sanitize_abc(output_text)
-    
-    if "X:" not in output_text:
+
+    if "X:" not in output_text and output_text.strip():
         header = "X:1\nT:Generated Song\nM:4/4\nL:1/8\nK:C\n"
         output_text = header + output_text
-    
+
     print("\n-------- GENERATED ABC --------")
-    print(output_text[:500] + ("..." if len(output_text) > 500 else ""))
+    print(output_text[:500] + ("\n[...truncated...]" if len(output_text) > 500 else ""))
     print("-------------------------------")
-    
+
     out_file = "generated_song.abc"
     with open(out_file, "w") as f:
         f.write(output_text)
     print(f"Saved to {out_file}")
+
 
 if __name__ == "__main__":
     generate()
