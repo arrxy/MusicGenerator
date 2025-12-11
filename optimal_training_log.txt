@@ -48,3 +48,75 @@ Validation Accuracy: 0.7660
 Training Time: 403.3 min
 Speed: 714,895 tok/s
 --------------------------------------------------
+--------------------------------------------------
+Model: Tiny
+Parameters: 1,033,472
+Epochs Completed: 1
+Tokens Trained: 500,039,680
+Validation Loss: 1.2487
+Validation Accuracy: 0.6468
+Test Loss: 1.2258
+Test Accuracy: 0.6560
+Training Time: 0.7 min
+Speed: 11,286,913 tok/s
+--------------------------------------------------
+--------------------------------------------------
+Model: Small
+Parameters: 6,535,296
+Epochs Completed: 1
+Tokens Trained: 1,307,181,056
+Validation Loss: 1.0393
+Validation Accuracy: 0.6976
+Test Loss: 1.0159
+Test Accuracy: 0.7059
+Training Time: 5.0 min
+Speed: 4,355,339 tok/s
+--------------------------------------------------
+--------------------------------------------------
+Model: Tiny
+Parameters: 1,033,472
+Tokens Trained: 500,039,680
+Validation Loss: 1.1833
+Test Loss: 1.1744
+Speed: 10,381,241 tok/s
+--------------------------------------------------
+--------------------------------------------------
+Model: Small
+Parameters: 6,535,296
+Tokens Trained: 1,307,181,056
+Validation Loss: 0.9391
+Test Loss: 0.9341
+Speed: 3,831,553 tok/s
+--------------------------------------------------
+--------------------------------------------------
+Model: Tiny
+Parameters: 1,033,472
+Tokens Trained: 500,039,680
+Validation Loss: 1.1019
+Test Loss: 1.0941
+Speed: 12,620,439 tok/s
+--------------------------------------------------
+--------------------------------------------------
+Model: Tiny
+Parameters: 1,033,472
+Tokens Trained: 500,039,680
+Validation Loss: 1.0648
+Test Loss: 1.0584
+Speed: 12,307,715 tok/s
+--------------------------------------------------
+--------------------------------------------------
+Model: Small
+Parameters: 6,535,296
+Tokens Trained: 1,307,181,056
+Validation Loss: 0.9051
+Test Loss: 0.9003
+Speed: 3,954,745 tok/s
+--------------------------------------------------
+--------------------------------------------------
+Model: Medium
+Parameters: 26,180,608
+Tokens Trained: 5,000,003,584
+Validation Loss: 0.8229
+Test Loss: 0.8189
+Speed: 1,796,098 tok/s
+--------------------------------------------------
