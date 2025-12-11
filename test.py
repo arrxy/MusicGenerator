@@ -13,7 +13,7 @@ except ImportError:
 
 # CONFIG
 CHECKPOINT_PATH = "ckpt_Tiny_robust.pt"
-VAL_DATA_PATH = "data/processed/val.txt"
+VAL_DATA_PATH = "data/processed/test.txt"
 VOCAB_PATH = "data/processed/vocab.json"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
