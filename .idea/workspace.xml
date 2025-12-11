@@ -4,20 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1ac314b2-1fb0-45d7-9ba0-90b68916b7c3" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ckpt_Medium_optimal.pt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ckpt_Small_optimal.pt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/ckpt_Tiny_optimal.pt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/continued_song.abc" beforeDir="false" afterPath="$PROJECT_DIR$/continued_song.abc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/generate.py" beforeDir="false" afterPath="$PROJECT_DIR$/generate.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/generate2.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/generate_continuation.py" beforeDir="false" afterPath="$PROJECT_DIR$/generate_continuation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/generated_song.abc" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/study_optimal.py" beforeDir="false" afterPath="$PROJECT_DIR$/study_optimal.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/study_optimal_2.py" beforeDir="false" afterPath="$PROJECT_DIR$/train_transformer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
-    </list>
+    <list default="true" id="1ac314b2-1fb0-45d7-9ba0-90b68916b7c3" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
