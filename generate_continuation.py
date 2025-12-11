@@ -18,10 +18,10 @@ except ImportError:
     MusicTokenizer = None
 
 # --- CONFIGURATION ---
-MODEL_SIZE = "Medium"  # Changed to Tiny to match your existing checkpoint
+MODEL_SIZE = "XL"  # Changed to Tiny to match your existing checkpoint
 CHECKPOINT_PATH = f"ckpt_{MODEL_SIZE}_robust.pt"  # Changed to _robust.pt
 VOCAB_PATH = "data/processed/vocab.json"
-MAX_NEW_TOKENS = 500  # Length of the song
+MAX_NEW_TOKENS = 50  # Length of the song
 TEMPERATURE = 0.8  # 1.0 = Random/Creative, 0.8 = Focused/Safe
 TOP_K = 600  # Limit to top N most likely next notes
 REPETITION_PENALTY = 1.1  # Reduce probability of recently used tokens (1.0 = No penalty)
@@ -305,21 +305,46 @@ def generate_continuation(prompt_abc):
 
 
 if __name__ == "__main__":
-    my_start = """M: 4/4
-L: 1/8
-Q:1/4=89
-K:C % 0 sharps
+    fur_elise = \
+    """
+   X:1759
+T:F\"ur Elise
+T:Bagatelle No.25 in A, WoO.59
+C:Ludwig van Beethoven
+O:Germany
+Z:Transcribed by Frank Nordberg - http://www.musicaviva.com
+F:http://abc.musicaviva.com/tunes/beethoven-ludwig-van/be059/be059-pno2.abc
+V:1 Program 1 0 %Piano
+V:2 Program 1 0 bass %Piano
+M:3/8
+L:1/16
+Q:3/8=40
+K:Am
 V:1
-z8| \
-z3
-[c'e] c/2z/2[ae] c/2[ge]z/2| \
-z/2[ec]G/2 z/2[cG]z[A-E-]/2[AEC]/2z/2 [GE]z| \
-[EC]G,/2z/2 [CG,]E,/2[B,-G,-D,-]4[B,-G,-D,-]/2|
-[B,G,D,]z/2C/2- [EC-][G-C]/2G/2 cG EC| \
-E/2-[G-E]/2G/2cGE/2 z/2B,EG/2-[B-G]/2B/2| \
-GE B,E GB/2-[BG-]/2 G/2E/2z/2^A,/2-| \
-^A,/2EGAG/2- [GE-]/2E/2A, EG|
-^AG E/2F,-[=A,F,]CFCA,/2| \
-z/2[FCA,]3/2 z[ECG,-] G,/2z3/2 F,-[A,-F,-]"""
+e^d|e^deB=dc|A2 z CEA|B2 z E^GB|c2 z Ee^d|
+V:2
+z2|z6|A,,E,A, z z2|E,,E,^G, z z2|A,,E,A, z z2|
+%
+V:1
+e^deB=dc|A2 z CEA|B2 z EcB|[1A2 z2:|[2A2z Bcd|
+V:2
+z6|A,,E,A, z z2|E,,E,^G, z z2|[1A,,E,A, z :|[2A,,E,A, z z2|
+%
+V:1
+|:e3 Gfe|d3 Fed|c3 Edc|B2 z Ee z|z ee' z z ^d|
+V:2
+|:C,E,C z z2|G,,G,B, z z2|A,,E,A, z z2|E,,E,E z z E|e z z ^de z|
+%
+V:1
+    """
+    happy_birthday = """
+X: 3
+T:Happy Birthday to You
+M:3/4
+L:1/8
+K:G
+D>D | E2 D2 G2 | F4 D>D | E2 D2 A2 | G4 D>D | d2 B2 G2 | (F2 E2) c>c |
+B2 G2 A2 | G6 |]
+"""
 
-    generate_continuation(my_start)
+    generate_continuation(happy_birthday)

@@ -38,10 +38,7 @@ else:
     DEVICE = 'cpu'
 
 
-# --- Helper Functions (Copied/Adapted from generate_song.py) ---
-
 def load_checkpoint_data(path):
-    # ... [Implementation of load_checkpoint_data] ...
     try:
         checkpoint = torch.load(path, map_location=DEVICE, weights_only=False)
     except FileNotFoundError:
