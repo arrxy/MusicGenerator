@@ -26,10 +26,26 @@ Tested Hardware: NVIDIA A100 / H100 / H200 GPU instances (specifically Digital O
 git clone https://github.com/arrxy/MusicGenerator.git
 cd MusicGenerator
 ```
-2. Install midi2abc: This is required for the data conversion pipeline. Install the command-line tool
+1.1. Setup Git LFS:
+
+1.1.1. Homebrew
+```aiignore
+brew install git-lfs
+```
+1.1.2 Debian
+```aiignore
+sudo apt-get install git-lfs
+```
+1.2
+```aiignore
+git lfs install
+git lfs pull
+```
+3. Install midi2abc: This is required for the data conversion pipeline. Install the command-line tool
     on your machine. _(Installation process varies by OS, e.g.,_ sudo apt-get install midi2abc _on_
     _Debian/Ubuntu)._
 3. Install Python Dependencies: This project uses uv for dependency management.
+
 
 ```
 # Install uv if you don't have it
